@@ -1,6 +1,7 @@
 """
 YouTube Downloader Application
 A modern desktop application for downloading YouTube videos and playlists.
+Built with SOLID principles and modular architecture.
 """
 
 import sys
@@ -16,7 +17,7 @@ def main():
     # Set application metadata
     app.setApplicationName("YouTube Downloader")
     app.setOrganizationName("YouTube Downloader")
-    app.setApplicationVersion("1.0.0")
+    app.setApplicationVersion("2.0.0")
     
     # Create and show main window
     window = MainWindow()

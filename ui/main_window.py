@@ -1,11 +1,10 @@
 """
 Main window for YouTube downloader application.
-Provides the user interface for downloading videos and playlists.
+Uses facade pattern for clean architecture and SOLID principles.
 """
 
 import os
 import subprocess
-from pathlib import Path
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QLineEdit, QPushButton, QComboBox,
@@ -13,25 +12,45 @@ from PySide6.QtWidgets import (
     QButtonGroup
 )
 from PySide6.QtCore import Qt, Slot
-from PySide6.QtGui import QIcon
 
-from core.downloader import DownloadManager
-from core.utils import ConfigManager, URLValidator
+from core.facade import DownloaderFacade
 from ui.progress_widget import ProgressWidget
+from ui.ui_state_manager import UIStateManager, UIState
 
 
 class MainWindow(QMainWindow):
-    """Main application window."""
+    """
+    Refactored main application window.
+    Uses facade pattern for simplified interaction with core services.
+    """
     
     def __init__(self):
         super().__init__()
-        self.config = ConfigManager()
-        self.download_manager = DownloadManager()
-        self.is_downloading = False
         
+        # Initialize facade (single entry point to core services)
+        self.facade = DownloaderFacade(enable_logging=True)
+        
+        # Set up UI
         self.setup_ui()
+        
+        # Initialize UI state manager
+        self.ui_state = UIStateManager({
+            'download_button': self.download_button,
+            'cancel_button': self.cancel_button,
+            'url_input': self.url_input,
+            'mp4_radio': self.mp4_radio,
+            'mp3_radio': self.mp3_radio,
+            'quality_combo': self.quality_combo,
+            'browse_button': self.browse_button,
+            'open_folder_button': self.open_folder_button,
+        })
+        
+        # Connect signals and load settings
         self.connect_signals()
         self.load_settings()
+        
+        # Set initial state
+        self.ui_state.set_state(UIState.READY, is_video=True)
     
     def setup_ui(self):
         """Set up the user interface."""
@@ -46,15 +65,35 @@ class MainWindow(QMainWindow):
         main_layout.setSpacing(15)
         
         # Title
+        self._setup_title(main_layout)
+        
+        # URL input section
+        self._setup_url_section(main_layout)
+        
+        # Format selection section
+        self._setup_format_section(main_layout)
+        
+        # Destination folder section
+        self._setup_destination_section(main_layout)
+        
+        # Progress section
+        self._setup_progress_section(main_layout)
+        
+        # Control buttons
+        self._setup_control_buttons(main_layout)
+    
+    def _setup_title(self, layout: QVBoxLayout):
+        """Set up title label."""
         title_label = QLabel("YouTube Downloader")
         font = title_label.font()
         font.setPointSize(16)
         font.setBold(True)
         title_label.setFont(font)
         title_label.setAlignment(Qt.AlignCenter)
-        main_layout.addWidget(title_label)
-        
-        # URL input section
+        layout.addWidget(title_label)
+    
+    def _setup_url_section(self, layout: QVBoxLayout):
+        """Set up URL input section."""
         url_group = QGroupBox("Video/Playlist URL")
         url_layout = QVBoxLayout(url_group)
         
@@ -69,9 +108,10 @@ class MainWindow(QMainWindow):
         url_input_layout.addWidget(self.url_type_label)
         
         url_layout.addLayout(url_input_layout)
-        main_layout.addWidget(url_group)
-        
-        # Format selection section
+        layout.addWidget(url_group)
+    
+    def _setup_format_section(self, layout: QVBoxLayout):
+        """Set up format selection section."""
         format_group = QGroupBox("Download Options")
         format_layout = QVBoxLayout(format_group)
         
@@ -93,7 +133,7 @@ class MainWindow(QMainWindow):
         
         format_layout.addLayout(format_type_layout)
         
-        # Quality selection (for video only)
+        # Quality selection
         quality_layout = QHBoxLayout()
         quality_layout.addWidget(QLabel("Quality:"))
         
@@ -113,13 +153,14 @@ class MainWindow(QMainWindow):
         
         format_layout.addLayout(quality_layout)
         
-        # Connect format change to enable/disable quality
+        # Connect format change
         self.mp4_radio.toggled.connect(self.on_format_changed)
         self.mp3_radio.toggled.connect(self.on_format_changed)
         
-        main_layout.addWidget(format_group)
-        
-        # Destination folder section
+        layout.addWidget(format_group)
+    
+    def _setup_destination_section(self, layout: QVBoxLayout):
+        """Set up destination folder section."""
         dest_group = QGroupBox("Destination Folder")
         dest_layout = QHBoxLayout(dest_group)
         
@@ -132,18 +173,20 @@ class MainWindow(QMainWindow):
         self.browse_button.setMinimumWidth(100)
         dest_layout.addWidget(self.browse_button)
         
-        main_layout.addWidget(dest_group)
-        
-        # Progress section
+        layout.addWidget(dest_group)
+    
+    def _setup_progress_section(self, layout: QVBoxLayout):
+        """Set up progress section."""
         progress_group = QGroupBox("Download Progress")
         progress_layout = QVBoxLayout(progress_group)
         
         self.progress_widget = ProgressWidget()
         progress_layout.addWidget(self.progress_widget)
         
-        main_layout.addWidget(progress_group)
-        
-        # Control buttons
+        layout.addWidget(progress_group)
+    
+    def _setup_control_buttons(self, layout: QVBoxLayout):
+        """Set up control buttons."""
         button_layout = QHBoxLayout()
         button_layout.addStretch()
         
@@ -157,57 +200,51 @@ class MainWindow(QMainWindow):
         self.cancel_button.setMinimumWidth(100)
         self.cancel_button.setMinimumHeight(40)
         self.cancel_button.clicked.connect(self.cancel_download)
-        self.cancel_button.setEnabled(False)
         button_layout.addWidget(self.cancel_button)
         
         self.open_folder_button = QPushButton("Open Folder")
         self.open_folder_button.setMinimumWidth(120)
         self.open_folder_button.setMinimumHeight(40)
         self.open_folder_button.clicked.connect(self.open_download_folder)
-        self.open_folder_button.setEnabled(False)
         button_layout.addWidget(self.open_folder_button)
         
         button_layout.addStretch()
-        main_layout.addLayout(button_layout)
-        
-        # Apply initial format state
-        self.on_format_changed()
+        layout.addLayout(button_layout)
     
     def connect_signals(self):
         """Connect download manager signals to slots."""
-        self.download_manager.progress_updated.connect(self.on_progress_updated)
-        self.download_manager.download_started.connect(self.on_download_started)
-        self.download_manager.download_completed.connect(self.on_download_completed)
-        self.download_manager.download_error.connect(self.on_download_error)
-        self.download_manager.playlist_progress.connect(self.on_playlist_progress)
+        manager = self.facade.get_download_manager()
+        manager.progress_updated.connect(self.on_progress_updated)
+        manager.download_started.connect(self.on_download_started)
+        manager.download_completed.connect(self.on_download_completed)
+        manager.download_error.connect(self.on_download_error)
+        manager.playlist_progress.connect(self.on_playlist_progress)
     
     def load_settings(self):
         """Load saved settings from configuration."""
+        settings = self.facade.get_all_settings()
+        
         # Load download path
-        download_path = self.config.get('download_path')
-        self.dest_input.setText(download_path)
+        self.dest_input.setText(settings.download_path)
         
         # Load format type
-        format_type = self.config.get('format_type', 'mp4')
-        if format_type == 'mp3':
+        if settings.format_type == 'mp3':
             self.mp3_radio.setChecked(True)
         else:
             self.mp4_radio.setChecked(True)
         
         # Load quality
-        quality = self.config.get('quality', '1080p')
-        index = self.quality_combo.findData(quality)
+        index = self.quality_combo.findData(settings.quality)
         if index >= 0:
             self.quality_combo.setCurrentIndex(index)
         
         # Load last URL
-        last_url = self.config.get('last_url', '')
-        if last_url:
-            self.url_input.setText(last_url)
+        if settings.last_url:
+            self.url_input.setText(settings.last_url)
     
     def save_settings(self):
         """Save current settings to configuration."""
-        self.config.update(
+        self.facade.update_settings(
             download_path=self.dest_input.text(),
             format_type='mp3' if self.mp3_radio.isChecked() else 'mp4',
             quality=self.quality_combo.currentData(),
@@ -223,7 +260,7 @@ class MainWindow(QMainWindow):
             self.url_type_label.setText("")
             return
         
-        url_type = URLValidator.get_url_type(url)
+        url_type = self.facade.get_url_type(url)
         
         if url_type == 'video':
             self.url_type_label.setText("📹 Video")
@@ -257,50 +294,33 @@ class MainWindow(QMainWindow):
     @Slot()
     def start_download(self):
         """Start the download process."""
-        # Validate URL
-        url = self.url_input.text().strip()
-        if not url:
-            QMessageBox.warning(self, "Input Error", "Please enter a YouTube URL.")
-            return
-        
-        if not URLValidator.is_valid_youtube_url(url):
-            QMessageBox.warning(
-                self,
-                "Invalid URL",
-                "Please enter a valid YouTube video or playlist URL."
-            )
-            return
-        
-        # Validate destination
-        dest_path = self.dest_input.text()
-        if not dest_path:
-            QMessageBox.warning(self, "Input Error", "Please select a destination folder.")
-            return
-        
         # Get download options
+        url = self.url_input.text().strip()
+        dest_path = self.dest_input.text()
         format_type = 'mp3' if self.mp3_radio.isChecked() else 'mp4'
         quality = self.quality_combo.currentData() if self.mp4_radio.isChecked() else 'best'
+        
+        # Validate using facade
+        is_valid, error_message = self.facade.validate_download_options(
+            url, dest_path, format_type, quality
+        )
+        
+        if not is_valid:
+            QMessageBox.warning(self, "Validation Error", error_message)
+            return
         
         # Save settings
         self.save_settings()
         
         # Update UI state
-        self.is_downloading = True
-        self.download_button.setEnabled(False)
-        self.cancel_button.setEnabled(True)
-        self.url_input.setEnabled(False)
-        self.mp4_radio.setEnabled(False)
-        self.mp3_radio.setEnabled(False)
-        self.quality_combo.setEnabled(False)
-        self.browse_button.setEnabled(False)
-        self.open_folder_button.setEnabled(False)
+        self.ui_state.set_state(UIState.DOWNLOADING)
         
         # Reset progress
         self.progress_widget.reset()
         self.progress_widget.clear_status()
         
-        # Start download
-        self.download_manager.start_download(url, dest_path, format_type, quality)
+        # Start download through facade
+        self.facade.start_download(url, dest_path, format_type, quality)
     
     @Slot()
     def cancel_download(self):
@@ -313,8 +333,8 @@ class MainWindow(QMainWindow):
         )
         
         if reply == QMessageBox.Yes:
-            self.download_manager.cancel_download()
-            self.reset_ui_state()
+            self.facade.cancel_download()
+            self.ui_state.set_state(UIState.READY, is_video=self.mp4_radio.isChecked())
             self.progress_widget.set_status("Download cancelled", is_error=True)
     
     @Slot()
@@ -322,7 +342,6 @@ class MainWindow(QMainWindow):
         """Open the download folder in file explorer."""
         dest_path = self.dest_input.text()
         if os.path.exists(dest_path):
-            # Open folder in file explorer (cross-platform)
             if os.name == 'nt':  # Windows
                 os.startfile(dest_path)
             elif os.name == 'posix':  # macOS and Linux
@@ -341,29 +360,25 @@ class MainWindow(QMainWindow):
     @Slot(dict)
     def on_download_completed(self, result: dict):
         """Handle download completion."""
-        self.reset_ui_state()
+        self.ui_state.set_state(UIState.COMPLETED)
         
         download_type = result.get('type', 'video')
         count = result.get('count', 1)
         
-        if download_type == 'playlist':
-            message = f"Successfully downloaded {count} videos from playlist!"
-        else:
-            message = "Download completed successfully!"
+        message = (
+            f"Successfully downloaded {count} videos from playlist!"
+            if download_type == 'playlist'
+            else "Download completed successfully!"
+        )
         
         self.progress_widget.set_status(message, is_error=False)
-        self.open_folder_button.setEnabled(True)
         
-        QMessageBox.information(
-            self,
-            "Download Complete",
-            message
-        )
+        QMessageBox.information(self, "Download Complete", message)
     
     @Slot(str)
     def on_download_error(self, error: str):
         """Handle download errors."""
-        self.reset_ui_state()
+        self.ui_state.set_state(UIState.ERROR)
         self.progress_widget.set_status(f"Error: {error}", is_error=True)
         
         QMessageBox.critical(
@@ -377,20 +392,9 @@ class MainWindow(QMainWindow):
         """Handle playlist progress updates."""
         self.progress_widget.update_playlist_progress(current, total)
     
-    def reset_ui_state(self):
-        """Reset UI to ready state."""
-        self.is_downloading = False
-        self.download_button.setEnabled(True)
-        self.cancel_button.setEnabled(False)
-        self.url_input.setEnabled(True)
-        self.mp4_radio.setEnabled(True)
-        self.mp3_radio.setEnabled(True)
-        self.quality_combo.setEnabled(self.mp4_radio.isChecked())
-        self.browse_button.setEnabled(True)
-    
     def closeEvent(self, event):
         """Handle window close event."""
-        if self.is_downloading:
+        if self.facade.is_downloading():
             reply = QMessageBox.question(
                 self,
                 "Download in Progress",
@@ -402,6 +406,6 @@ class MainWindow(QMainWindow):
                 event.ignore()
                 return
             
-            self.download_manager.cancel_download()
+            self.facade.cancel_download()
         
         event.accept()
