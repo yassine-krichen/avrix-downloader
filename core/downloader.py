@@ -171,10 +171,15 @@ class DownloadWorker(QObject):
             # Video download options with proper audio merging
             # Use flexible format selection that falls back gracefully
             if self.quality == 'best':
-                # Best available quality with audio
-                base_opts['format'] = 'bestvideo+bestaudio/best'
-                print(f"  Format String: bestvideo+bestaudio/best")
-                print(f"  Mode: Best available quality")
+                # Best available quality with audio - multiple fallback options
+                format_string = (
+                    'bestvideo+bestaudio[ext=m4a]/'
+                    'bestvideo+bestaudio/'
+                    'best'
+                )
+                base_opts['format'] = format_string
+                print(f"  Format String: {format_string}")
+                print(f"  Mode: Best available quality with audio fallbacks")
             else:
                 # Specific quality with multiple fallback options
                 # IMPORTANT: Always include audio in all fallback options
