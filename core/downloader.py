@@ -143,17 +143,30 @@ class DownloadWorker(QObject):
     
     def _get_ydl_options(self) -> Dict[str, Any]:
         """Get yt-dlp configuration options based on format and quality."""
+        # Create filename template with quality suffix and sanitization
+        if self.format_type == 'mp3':
+            # For MP3, just add format type
+            filename_template = '%(title)s [MP3-192k].%(ext)s'
+        else:
+            # For video, add quality to filename
+            quality_suffix = self.quality if self.quality != 'best' else 'Best'
+            filename_template = f'%(title)s [{quality_suffix}].%(ext)s'
+        
         base_opts = {
             'progress_hooks': [self.progress_hook],
-            'outtmpl': os.path.join(self.download_path, '%(title)s.%(ext)s'),
+            'outtmpl': os.path.join(self.download_path, filename_template),
             'quiet': False,
             'no_warnings': False,
+            # Restrict filenames to Windows-compatible characters
+            'restrictfilenames': False,  # Keep original characters when possible
+            'windowsfilenames': True,    # But remove Windows-incompatible ones
         }
         
         print(f"\n{'='*60}")
         print(f"DEBUG: Configuring download options")
         print(f"  Format Type: {self.format_type}")
         print(f"  Quality: {self.quality}")
+        print(f"  Filename Template: {filename_template}")
         
         if self.format_type == 'mp3':
             # Audio download options
