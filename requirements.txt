@@ -1,0 +1,8 @@
+# YouTube Downloader Requirements
+
+# Core dependencies
+yt-dlp>=2023.10.13
+PySide6>=6.6.0
+
+# Optional: FFmpeg is required for merging video/audio and MP3 conversion
+# Install separately from: https://ffmpeg.org/download.html
