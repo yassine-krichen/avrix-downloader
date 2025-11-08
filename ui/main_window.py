@@ -98,8 +98,15 @@ class MainWindow(QMainWindow):
         quality_layout.addWidget(QLabel("Quality:"))
         
         self.quality_combo = QComboBox()
-        self.quality_combo.addItem("High Definition (HD - 1080p)", "hd")
-        self.quality_combo.addItem("Standard Definition (SD - 480p)", "sd")
+        self.quality_combo.addItem("Best Available (Highest Quality)", "best")
+        self.quality_combo.addItem("4K - 2160p", "2160p")
+        self.quality_combo.addItem("2K - 1440p", "1440p")
+        self.quality_combo.addItem("Full HD - 1080p", "1080p")
+        self.quality_combo.addItem("HD - 720p", "720p")
+        self.quality_combo.addItem("SD - 480p", "480p")
+        self.quality_combo.addItem("360p", "360p")
+        self.quality_combo.addItem("240p", "240p")
+        self.quality_combo.addItem("144p", "144p")
         self.quality_combo.setMinimumWidth(250)
         quality_layout.addWidget(self.quality_combo)
         quality_layout.addStretch()
@@ -188,7 +195,7 @@ class MainWindow(QMainWindow):
             self.mp4_radio.setChecked(True)
         
         # Load quality
-        quality = self.config.get('quality', 'hd')
+        quality = self.config.get('quality', '1080p')
         index = self.quality_combo.findData(quality)
         if index >= 0:
             self.quality_combo.setCurrentIndex(index)

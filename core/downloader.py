@@ -66,6 +66,14 @@ class DownloadWorker(QObject):
     def run(self):
         """Main download execution method."""
         try:
+            print(f"\n{'*'*60}")
+            print(f"DEBUG: Starting download")
+            print(f"  URL: {self.url}")
+            print(f"  Download Path: {self.download_path}")
+            print(f"  Format: {self.format_type}")
+            print(f"  Quality: {self.quality}")
+            print(f"{'*'*60}\n")
+            
             # Create download directory if it doesn't exist
             Path(self.download_path).mkdir(parents=True, exist_ok=True)
             
@@ -75,12 +83,14 @@ class DownloadWorker(QObject):
             # Start download
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 # Extract info first to check if it's a playlist
+                print(f"DEBUG: Extracting video information...")
                 info = ydl.extract_info(self.url, download=False)
                 
                 if 'entries' in info:
                     # It's a playlist
                     self.total_videos = len(info['entries'])
                     self.playlist_progress.emit(0, self.total_videos)
+                    print(f"DEBUG: Detected playlist with {self.total_videos} videos\n")
                     
                     # Download each video
                     for idx, entry in enumerate(info['entries'], 1):
@@ -90,6 +100,7 @@ class DownloadWorker(QObject):
                         if entry:
                             self.current_video_index = idx
                             video_title = entry.get('title', f'Video {idx}')
+                            print(f"\nDEBUG: Downloading video {idx}/{self.total_videos}: {video_title}")
                             self.download_started.emit(video_title)
                             self.playlist_progress.emit(idx, self.total_videos)
                             
@@ -98,11 +109,23 @@ class DownloadWorker(QObject):
                 else:
                     # Single video
                     video_title = info.get('title', 'Video')
+                    video_height = info.get('height', 'unknown')
+                    video_width = info.get('width', 'unknown')
+                    print(f"DEBUG: Single video detected")
+                    print(f"  Title: {video_title}")
+                    print(f"  Available resolution: {video_width}x{video_height}")
+                    print(f"  Starting download...\n")
                     self.download_started.emit(video_title)
                     ydl.download([self.url])
             
             # Emit completion signal
             if not self.is_cancelled:
+                print(f"\n{'+'*60}")
+                print(f"DEBUG: Download completed successfully!")
+                print(f"  Type: {'Playlist' if self.total_videos > 1 else 'Single video'}")
+                print(f"  Count: {self.total_videos}")
+                print(f"  Path: {self.download_path}")
+                print(f"{'+'*60}\n")
                 self.download_completed.emit({
                     'success': True,
                     'path': self.download_path,
@@ -112,6 +135,10 @@ class DownloadWorker(QObject):
         
         except Exception as e:
             if not self.is_cancelled:
+                print(f"\n{'!'*60}")
+                print(f"DEBUG: Download ERROR!")
+                print(f"  Error: {str(e)}")
+                print(f"{'!'*60}\n")
                 self.download_error.emit(str(e))
     
     def _get_ydl_options(self) -> Dict[str, Any]:
@@ -123,6 +150,11 @@ class DownloadWorker(QObject):
             'no_warnings': False,
         }
         
+        print(f"\n{'='*60}")
+        print(f"DEBUG: Configuring download options")
+        print(f"  Format Type: {self.format_type}")
+        print(f"  Quality: {self.quality}")
+        
         if self.format_type == 'mp3':
             # Audio download options
             base_opts.update({
@@ -133,16 +165,51 @@ class DownloadWorker(QObject):
                     'preferredquality': '192',
                 }],
             })
+            print(f"  Format String: bestaudio/best")
+            print(f"  Mode: Audio extraction (MP3)")
         else:
-            # Video download options
-            if self.quality == 'hd':
-                base_opts['format'] = 'bestvideo[height<=1080]+bestaudio/best[height<=1080]'
-            else:  # SD
-                base_opts['format'] = 'bestvideo[height<=480]+bestaudio/best[height<=480]'
+            # Video download options with proper audio merging
+            # Use flexible format selection that falls back gracefully
+            if self.quality == 'best':
+                # Best available quality with audio
+                base_opts['format'] = 'bestvideo+bestaudio/best'
+                print(f"  Format String: bestvideo+bestaudio/best")
+                print(f"  Mode: Best available quality")
+            else:
+                # Specific quality with multiple fallback options
+                # IMPORTANT: Always include audio in all fallback options
+                height = self.quality.replace('p', '')
+                format_string = (
+                    # Option 1: Best video at quality + best audio (separate streams)
+                    f'bestvideo[height<={height}]+bestaudio[ext=m4a]/bestvideo[height<={height}]+bestaudio/'
+                    # Option 2: Combined format that already has audio at quality
+                    f'best[height<={height}][vcodec^=avc1]/'
+                    # Option 3: Any video at quality + any audio
+                    f'worstvideo[height<={height}]+bestaudio/'
+                    # Option 4: Last resort - best combined format at quality
+                    f'best[height<={height}]'
+                )
+                base_opts['format'] = format_string
+                print(f"  Height Limit: {height}p")
+                print(f"  Format String: {format_string}")
+                print(f"  Mode: Quality-limited video with audio in all fallbacks")
             
             # Merge video and audio if separate
             base_opts['merge_output_format'] = 'mp4'
+            
+            # CRITICAL: Ensure FFmpeg merges audio properly
+            base_opts['postprocessors'] = [{
+                'key': 'FFmpegVideoConvertor',
+                'preferedformat': 'mp4',
+            }]
+            
+            # Add audio codec preference to ensure audio is included
+            base_opts['prefer_ffmpeg'] = True
+            
+            print(f"  Output Format: MP4 (with FFmpeg audio merging)")
+            print(f"  Audio: Guaranteed in all options")
         
+        print(f"{'='*60}\n")
         return base_opts
 
 
