@@ -269,7 +269,8 @@ class QueueManager(QObject):
     
     def retry_item(self, item_id: str):
         """
-        Retry a failed or cancelled item.
+        Retry a failed or cancelled item, or redownload a completed item.
+        Sets the item back to PENDING status without auto-starting.
         
         Args:
             item_id: ID of item to retry
@@ -277,7 +278,7 @@ class QueueManager(QObject):
         item = self.queue.get(item_id)
         
         if item and item.can_retry():
-            # Reset item status
+            # Reset item status to PENDING
             updated_item = item.update_status(QueueItemStatus.PENDING)
             updated_item = QueueItem.from_dict({
                 **updated_item.to_dict(),
@@ -288,11 +289,11 @@ class QueueManager(QObject):
             })
             self.queue.update(updated_item)
             
-            self.logger.info(f"Retrying item: {item.title or item.url}")
+            status_text = "redownload" if item.status == QueueItemStatus.COMPLETED else "retry"
+            self.logger.info(f"Item set to pending for {status_text}: {item.title or item.url}")
             
-            # Start processing if not already
-            if self._auto_process and not self._is_processing:
-                self.process_queue()
+            # NOTE: Do NOT auto-start processing here
+            # User must manually click "Start Queue" to process pending items
     
     def remove_item(self, item_id: str):
         """

@@ -9,15 +9,17 @@ from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QLineEdit, QPushButton, QComboBox,
     QFileDialog, QMessageBox, QGroupBox, QRadioButton,
-    QButtonGroup, QTabWidget
+    QButtonGroup, QTabWidget, QMenu, QToolButton
 )
-from PySide6.QtCore import Qt, Slot
+from PySide6.QtCore import Qt, Slot, QUrl, QSize
+from PySide6.QtGui import QIcon, QDragEnterEvent, QDropEvent, QAction, QFont
 
 from core.facade import DownloaderFacade
 from core.queue_item import QueueItem
 from ui.progress_widget import ProgressWidget
 from ui.queue_widget import QueueWidget
 from ui.ui_state_manager import UIStateManager, UIState
+from ui.theme_manager import ThemeManager, ThemeMode
 
 
 class MainWindow(QMainWindow):
@@ -29,11 +31,18 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         
+        # Initialize theme manager
+        self.theme_manager = ThemeManager()
+        
         # Initialize facade (single entry point to core services)
         self.facade = DownloaderFacade(enable_logging=True)
         
         # Set up UI
         self.setup_ui()
+        
+        # Apply theme
+        saved_theme = self.theme_manager.load_theme()
+        self.theme_manager.apply_theme(saved_theme)
         
         # Initialize UI state manager
         self.ui_state = UIStateManager({
@@ -60,15 +69,27 @@ class MainWindow(QMainWindow):
     
     def setup_ui(self):
         """Set up the user interface."""
-        self.setWindowTitle("YouTube Downloader")
+        self.setWindowTitle("YouTube Downloader Pro")
         self.setMinimumWidth(700)
-        self.setMinimumHeight(700)  # Increased from 500 to 700
+        self.setMinimumHeight(700)
+        
+        # Enable drag and drop
+        self.setAcceptDrops(True)
+        
+        # Set window icon if available
+        icon_path = "assets/icon.png"
+        if os.path.exists(icon_path):
+            self.setWindowIcon(QIcon(icon_path))
+        
+        # Create menu bar
+        self._setup_menu_bar()
         
         # Central widget
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
         main_layout = QVBoxLayout(central_widget)
-        main_layout.setSpacing(15)
+        main_layout.setSpacing(8)
+        main_layout.setContentsMargins(10, 10, 10, 10)
         
         # Title
         self._setup_title(main_layout)
@@ -82,35 +103,105 @@ class MainWindow(QMainWindow):
         # Destination folder section
         self._setup_destination_section(main_layout)
         
-        # Tabs for progress and queue
+        # Tabs for progress and queue (give it stretch priority)
         self._setup_tabs_section(main_layout)
         
         # Control buttons
         self._setup_control_buttons(main_layout)
     
+    def _setup_menu_bar(self):
+        """Set up the menu bar."""
+        menubar = self.menuBar()
+        
+        # View menu
+        view_menu = menubar.addMenu("&View")
+        
+        # Theme submenu
+        theme_menu = QMenu("Theme", self)
+        
+        light_action = QAction("Light Mode", self)
+        light_action.triggered.connect(lambda: self.theme_manager.apply_theme(ThemeMode.LIGHT))
+        theme_menu.addAction(light_action)
+        
+        dark_action = QAction("Dark Mode", self)
+        dark_action.triggered.connect(lambda: self.theme_manager.apply_theme(ThemeMode.DARK))
+        theme_menu.addAction(dark_action)
+        
+        system_action = QAction("Follow System", self)
+        system_action.triggered.connect(lambda: self.theme_manager.apply_theme(ThemeMode.SYSTEM))
+        theme_menu.addAction(system_action)
+        
+        view_menu.addMenu(theme_menu)
+        
+        # Help menu
+        help_menu = menubar.addMenu("&Help")
+        
+        about_action = QAction("About", self)
+        about_action.triggered.connect(self.show_about)
+        help_menu.addAction(about_action)
+    
     def _setup_title(self, layout: QVBoxLayout):
-        """Set up title label."""
-        title_label = QLabel("YouTube Downloader")
-        font = title_label.font()
-        font.setPointSize(16)
-        font.setBold(True)
-        title_label.setFont(font)
-        title_label.setAlignment(Qt.AlignCenter)
-        layout.addWidget(title_label)
+        """Set up title label with branding."""
+        title_widget = QWidget()
+        title_layout = QVBoxLayout(title_widget)
+        title_layout.setContentsMargins(0, 10, 0, 5)
+        title_layout.setSpacing(2)
+        
+        # Title
+        title_label = QLabel("YouTube Downloader Pro")
+        title_label.setObjectName("titleLabel")
+        title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        title_layout.addWidget(title_label)
+        
+        # Subtitle
+        subtitle_label = QLabel("Professional video & audio download manager")
+        subtitle_label.setObjectName("subtitleLabel")
+        subtitle_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        title_layout.addWidget(subtitle_label)
+        
+        layout.addWidget(title_widget)
     
     def _setup_url_section(self, layout: QVBoxLayout):
         """Set up URL input section."""
-        url_group = QGroupBox("Video/Playlist URL")
+        url_group = QGroupBox("Source")
         url_layout = QVBoxLayout(url_group)
+        url_layout.setSpacing(5)
+        url_layout.setContentsMargins(10, 8, 10, 10)
         
+        # Header with info button
+        header_layout = QHBoxLayout()
+        header_label = QLabel("Enter YouTube URL")
+        header_label.setObjectName("sectionHeader")
+        header_layout.addWidget(header_label)
+        
+        # Info button
+        info_button = QToolButton()
+        info_button.setText("?")
+        info_button.setToolTip(
+            "Supported formats:\n"
+            "• Single video URL\n"
+            "• Playlist URL\n"
+            "• Channel URL\n\n"
+            "You can also drag and drop URLs from your browser"
+        )
+        info_button.setObjectName("infoButton")
+        info_button.setCursor(Qt.CursorShape.WhatsThisCursor)
+        header_layout.addWidget(info_button)
+        header_layout.addStretch()
+        
+        url_layout.addLayout(header_layout)
+        
+        # URL input
         url_input_layout = QHBoxLayout()
         self.url_input = QLineEdit()
-        self.url_input.setPlaceholderText("Paste YouTube video or playlist URL here...")
+        self.url_input.setPlaceholderText("https://www.youtube.com/watch?v=...")
         self.url_input.textChanged.connect(self.on_url_changed)
         url_input_layout.addWidget(self.url_input)
         
+        # URL type indicator (minimal)
         self.url_type_label = QLabel("")
-        self.url_type_label.setMinimumWidth(80)
+        self.url_type_label.setObjectName("urlTypeLabel")
+        self.url_type_label.setMinimumWidth(100)
         url_input_layout.addWidget(self.url_type_label)
         
         url_layout.addLayout(url_input_layout)
@@ -118,46 +209,96 @@ class MainWindow(QMainWindow):
     
     def _setup_format_section(self, layout: QVBoxLayout):
         """Set up format selection section."""
-        format_group = QGroupBox("Download Options")
+        format_group = QGroupBox("Download Configuration")
         format_layout = QVBoxLayout(format_group)
+        format_layout.setSpacing(5)
+        format_layout.setContentsMargins(10, 8, 10, 10)
         
-        # Format type (MP3/MP4)
+        # Single row: Format type and Quality selection side by side
+        config_row = QHBoxLayout()
+        config_row.setSpacing(20)
+        
+        # Left side: Format type (MP3/MP4)
+        format_container = QVBoxLayout()
+        format_container.setSpacing(3)
+        
         format_type_layout = QHBoxLayout()
-        format_type_layout.addWidget(QLabel("Format:"))
+        format_label = QLabel("Format")
+        format_label.setObjectName("sectionHeader")
+        format_type_layout.addWidget(format_label)
         
+        # Info button for format
+        format_info = QToolButton()
+        format_info.setText("?")
+        format_info.setToolTip(
+            "MP4: Download full video with audio\n"
+            "MP3: Extract audio only (ideal for music)"
+        )
+        format_info.setObjectName("infoButton")
+        format_info.setCursor(Qt.CursorShape.WhatsThisCursor)
+        format_type_layout.addWidget(format_info)
+        format_type_layout.addStretch()
+        format_container.addLayout(format_type_layout)
+        
+        # Radio buttons
         self.format_button_group = QButtonGroup()
-        self.mp4_radio = QRadioButton("MP4 (Video)")
-        self.mp3_radio = QRadioButton("MP3 (Audio)")
+        self.mp4_radio = QRadioButton("Video (MP4)")
+        self.mp3_radio = QRadioButton("Audio (MP3)")
         self.mp4_radio.setChecked(True)
         
         self.format_button_group.addButton(self.mp4_radio)
         self.format_button_group.addButton(self.mp3_radio)
         
-        format_type_layout.addWidget(self.mp4_radio)
-        format_type_layout.addWidget(self.mp3_radio)
-        format_type_layout.addStretch()
+        format_container.addWidget(self.mp4_radio)
+        format_container.addWidget(self.mp3_radio)
         
-        format_layout.addLayout(format_type_layout)
+        config_row.addLayout(format_container)
         
-        # Quality selection
-        quality_layout = QHBoxLayout()
-        quality_layout.addWidget(QLabel("Quality:"))
+        # Right side: Quality selection
+        quality_container = QVBoxLayout()
+        quality_container.setSpacing(3)
+        
+        quality_header = QHBoxLayout()
+        quality_label = QLabel("Quality")
+        quality_label.setObjectName("sectionHeader")
+        quality_header.addWidget(quality_label)
+        
+        # Info button for quality
+        quality_info = QToolButton()
+        quality_info.setText("?")
+        quality_info.setToolTip(
+            "Available qualities:\n"
+            "• Best: Highest quality available\n"
+            "• 4K (2160p): Ultra HD\n"
+            "• 2K (1440p): Quad HD\n"
+            "• 1080p: Full HD\n"
+            "• 720p: HD\n"
+            "• 480p and below: SD\n\n"
+            "Note: Quality depends on source video"
+        )
+        quality_info.setObjectName("infoButton")
+        quality_info.setCursor(Qt.CursorShape.WhatsThisCursor)
+        quality_header.addWidget(quality_info)
+        quality_header.addStretch()
+        quality_container.addLayout(quality_header)
         
         self.quality_combo = QComboBox()
-        self.quality_combo.addItem("Best Available (Highest Quality)", "best")
-        self.quality_combo.addItem("4K - 2160p", "2160p")
-        self.quality_combo.addItem("2K - 1440p", "1440p")
-        self.quality_combo.addItem("Full HD - 1080p", "1080p")
-        self.quality_combo.addItem("HD - 720p", "720p")
-        self.quality_combo.addItem("SD - 480p", "480p")
+        self.quality_combo.addItem("Best Available", "best")
+        self.quality_combo.addItem("2160p (4K)", "2160p")
+        self.quality_combo.addItem("1440p (2K)", "1440p")
+        self.quality_combo.addItem("1080p (Full HD)", "1080p")
+        self.quality_combo.addItem("720p (HD)", "720p")
+        self.quality_combo.addItem("480p (SD)", "480p")
         self.quality_combo.addItem("360p", "360p")
         self.quality_combo.addItem("240p", "240p")
         self.quality_combo.addItem("144p", "144p")
-        self.quality_combo.setMinimumWidth(250)
-        quality_layout.addWidget(self.quality_combo)
-        quality_layout.addStretch()
+        self.quality_combo.setMinimumWidth(180)
+        quality_container.addWidget(self.quality_combo)
         
-        format_layout.addLayout(quality_layout)
+        config_row.addLayout(quality_container)
+        config_row.addStretch()
+        
+        format_layout.addLayout(config_row)
         
         # Connect format change
         self.mp4_radio.toggled.connect(self.on_format_changed)
@@ -167,27 +308,56 @@ class MainWindow(QMainWindow):
     
     def _setup_destination_section(self, layout: QVBoxLayout):
         """Set up destination folder section."""
-        dest_group = QGroupBox("Destination Folder")
-        dest_layout = QHBoxLayout(dest_group)
+        dest_group = QGroupBox("Output Location")
+        dest_layout = QVBoxLayout(dest_group)
+        dest_layout.setSpacing(5)
+        dest_layout.setContentsMargins(10, 8, 10, 10)
         
+        # Single row: Label with info + Path input + Browse button
+        path_layout = QHBoxLayout()
+        
+        # Label with info button
+        label_container = QHBoxLayout()
+        label_container.setSpacing(3)
+        header_label = QLabel("Path")
+        header_label.setObjectName("sectionHeader")
+        label_container.addWidget(header_label)
+        
+        dest_info = QToolButton()
+        dest_info.setText("?")
+        dest_info.setToolTip(
+            "Select where downloaded files will be saved.\n"
+            "Folder will be created if it doesn't exist."
+        )
+        dest_info.setObjectName("infoButton")
+        dest_info.setCursor(Qt.CursorShape.WhatsThisCursor)
+        label_container.addWidget(dest_info)
+        
+        path_layout.addLayout(label_container)
+        
+        # Path input
         self.dest_input = QLineEdit()
         self.dest_input.setReadOnly(True)
-        dest_layout.addWidget(self.dest_input)
+        path_layout.addWidget(self.dest_input, 1)
         
-        self.browse_button = QPushButton("Browse...")
+        self.browse_button = QPushButton("Browse")
         self.browse_button.clicked.connect(self.browse_destination)
-        self.browse_button.setMinimumWidth(100)
-        dest_layout.addWidget(self.browse_button)
+        self.browse_button.setMinimumWidth(80)
+        path_layout.addWidget(self.browse_button)
+        
+        dest_layout.addLayout(path_layout)
         
         layout.addWidget(dest_group)
     
     def _setup_tabs_section(self, layout: QVBoxLayout):
         """Set up tabs for progress and queue."""
         tab_widget = QTabWidget()
+        tab_widget.setMinimumHeight(250)  # Ensure minimum visible height
         
         # Progress tab
         progress_tab = QWidget()
         progress_layout = QVBoxLayout(progress_tab)
+        progress_layout.setContentsMargins(5, 5, 5, 5)
         self.progress_widget = ProgressWidget()
         progress_layout.addWidget(self.progress_widget)
         tab_widget.addTab(progress_tab, "Current Download")
@@ -195,6 +365,7 @@ class MainWindow(QMainWindow):
         # Queue tab
         queue_tab = QWidget()
         queue_layout = QVBoxLayout(queue_tab)
+        queue_layout.setContentsMargins(5, 5, 5, 5)
         self.queue_widget = QueueWidget()
         queue_layout.addWidget(self.queue_widget)
         
@@ -218,7 +389,8 @@ class MainWindow(QMainWindow):
         
         tab_widget.addTab(queue_tab, "Download Queue")
         
-        layout.addWidget(tab_widget)
+        # Give the tab widget stretch priority so it takes up remaining space
+        layout.addWidget(tab_widget, 1)
     
     def _setup_progress_section(self, layout: QVBoxLayout):
         """Set up progress section."""
@@ -231,35 +403,38 @@ class MainWindow(QMainWindow):
         layout.addWidget(progress_group)
     
     def _setup_control_buttons(self, layout: QVBoxLayout):
-        """Set up control buttons."""
+        """Set up control buttons with minimal styling."""
         button_layout = QHBoxLayout()
-        button_layout.addStretch()
+        button_layout.setSpacing(10)
+        button_layout.setContentsMargins(0, 5, 0, 0)
         
         self.download_button = QPushButton("Start Download")
-        self.download_button.setMinimumWidth(150)
         self.download_button.setMinimumHeight(40)
+        self.download_button.setObjectName("primaryButton")
         self.download_button.clicked.connect(self.start_download)
+        self.download_button.setToolTip("Begin downloading immediately")
         button_layout.addWidget(self.download_button)
         
         self.add_to_queue_button = QPushButton("Add to Queue")
-        self.add_to_queue_button.setMinimumWidth(150)
-        self.add_to_queue_button.setMinimumHeight(40)
+        self.add_to_queue_button.setMinimumHeight(45)
+        self.add_to_queue_button.setObjectName("secondaryButton")
         self.add_to_queue_button.clicked.connect(self.add_to_queue)
+        self.add_to_queue_button.setToolTip("Add to download queue for batch processing")
         button_layout.addWidget(self.add_to_queue_button)
         
         self.cancel_button = QPushButton("Cancel")
-        self.cancel_button.setMinimumWidth(100)
-        self.cancel_button.setMinimumHeight(40)
+        self.cancel_button.setMinimumHeight(45)
+        self.cancel_button.setObjectName("cancelButton")
         self.cancel_button.clicked.connect(self.cancel_download)
+        self.cancel_button.setToolTip("Stop current download")
         button_layout.addWidget(self.cancel_button)
         
         self.open_folder_button = QPushButton("Open Folder")
-        self.open_folder_button.setMinimumWidth(120)
-        self.open_folder_button.setMinimumHeight(40)
+        self.open_folder_button.setMinimumHeight(45)
+        self.open_folder_button.setObjectName("secondaryButton")
         self.open_folder_button.clicked.connect(self.open_download_folder)
+        self.open_folder_button.setToolTip("Open download location in file explorer")
         button_layout.addWidget(self.open_folder_button)
-        
-        button_layout.addStretch()
         layout.addLayout(button_layout)
     
     def connect_signals(self):
@@ -328,24 +503,25 @@ class MainWindow(QMainWindow):
     
     @Slot()
     def on_url_changed(self):
-        """Handle URL input changes."""
+        """Handle URL input changes with minimal visual feedback."""
         url = self.url_input.text().strip()
         
         if not url:
             self.url_type_label.setText("")
+            self.url_type_label.setStyleSheet("")
             return
         
         url_type = self.facade.get_url_type(url)
         
         if url_type == 'video':
-            self.url_type_label.setText("📹 Video")
-            self.url_type_label.setStyleSheet("color: blue; font-weight: bold;")
+            self.url_type_label.setText("Single Video")
+            self.url_type_label.setStyleSheet("color: #1976d2; font-weight: 500;")
         elif url_type == 'playlist':
-            self.url_type_label.setText("📋 Playlist")
-            self.url_type_label.setStyleSheet("color: green; font-weight: bold;")
+            self.url_type_label.setText("Playlist")
+            self.url_type_label.setStyleSheet("color: #1976d2; font-weight: 500;")
         else:
-            self.url_type_label.setText("❌ Invalid")
-            self.url_type_label.setStyleSheet("color: red; font-weight: bold;")
+            self.url_type_label.setText("Invalid URL")
+            self.url_type_label.setStyleSheet("color: #757575; font-weight: 500;")
     
     @Slot()
     def on_format_changed(self):
@@ -427,10 +603,12 @@ class MainWindow(QMainWindow):
         """Handle progress updates."""
         self.progress_widget.update_progress(progress_info)
     
-    @Slot(str)
-    def on_download_started(self, title: str):
+    @Slot(dict)
+    def on_download_started(self, video_info: dict):
         """Handle download started event."""
-        self.progress_widget.set_current_video(title)
+        title = video_info.get('title', 'Unknown')
+        thumbnail = video_info.get('thumbnail', '')
+        self.progress_widget.set_current_video(title, thumbnail)
     
     @Slot(dict)
     def on_download_completed(self, result: dict):
@@ -648,3 +826,65 @@ class MainWindow(QMainWindow):
             self.facade.cancel_download()
         
         event.accept()
+    
+    def dragEnterEvent(self, event: QDragEnterEvent):
+        """Handle drag enter event for drag and drop."""
+        if event.mimeData().hasUrls() or event.mimeData().hasText():
+            event.acceptProposedAction()
+    
+    def dropEvent(self, event: QDropEvent):
+        """Handle drop event for drag and drop."""
+        mime_data = event.mimeData()
+        
+        # Try to get URL from dropped data
+        url = None
+        if mime_data.hasUrls():
+            urls = mime_data.urls()
+            if urls:
+                url = urls[0].toString()
+        elif mime_data.hasText():
+            url = mime_data.text().strip()
+        
+        if url:
+            # Check if it's a YouTube URL
+            url_type = self.facade.get_url_type(url)
+            if url_type in ['video', 'playlist']:
+                self.url_input.setText(url)
+                event.acceptProposedAction()
+                
+                # Show feedback
+                QMessageBox.information(
+                    self,
+                    "URL Added",
+                    f"YouTube {url_type} URL detected and added!"
+                )
+            else:
+                QMessageBox.warning(
+                    self,
+                    "Invalid URL",
+                    "Please drop a valid YouTube video or playlist URL."
+                )
+    
+    def show_about(self):
+        """Show about dialog."""
+        about_text = """
+        <h2>YouTube Downloader Pro</h2>
+        <p><b>Version:</b> 2.0.0</p>
+        <p><b>A powerful YouTube video and audio downloader</b></p>
+        <br>
+        <p><b>Features:</b></p>
+        <ul>
+            <li>Download videos in multiple qualities (144p to 4K)</li>
+            <li>Extract audio as MP3</li>
+            <li>Queue management system</li>
+            <li>Playlist support</li>
+            <li>Dark and light themes</li>
+            <li>Drag and drop support</li>
+        </ul>
+        <br>
+        <p><b>Built with:</b> Python, PySide6, yt-dlp</p>
+        <p><b>Architecture:</b> SOLID principles, modular design</p>
+        """
+        
+        QMessageBox.about(self, "About YouTube Downloader Pro", about_text)
+

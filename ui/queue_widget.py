@@ -63,6 +63,9 @@ class QueueWidget(QWidget):
         self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.table.verticalHeader().setVisible(False)
         
+        # Set default row height for better button visibility
+        self.table.verticalHeader().setDefaultSectionSize(60)
+        
         # Column sizing
         header = self.table.horizontalHeader()
         header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)  # Title
@@ -76,7 +79,7 @@ class QueueWidget(QWidget):
         self.table.setColumnWidth(2, 70)   # Format
         self.table.setColumnWidth(3, 80)   # Quality
         self.table.setColumnWidth(4, 80)   # Progress
-        self.table.setColumnWidth(5, 150)  # Actions
+        self.table.setColumnWidth(5, 220)  # Actions - increased for button text
         
         layout.addWidget(self.table)
         
@@ -125,8 +128,14 @@ class QueueWidget(QWidget):
             row: Row index
             item: Queue item to display
         """
-        # Title
-        title_item = QTableWidgetItem(item.title or item.url)
+        # Title - handle both string and dict (for backward compatibility)
+        title = item.title
+        if isinstance(title, dict):
+            # If title is a dict (old format), extract the 'title' key
+            title = title.get('title', item.url) if title else item.url
+        title_text = title or item.url
+        
+        title_item = QTableWidgetItem(str(title_text))
         title_item.setToolTip(item.url)
         self.table.setItem(row, 0, title_item)
         

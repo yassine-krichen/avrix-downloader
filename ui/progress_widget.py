@@ -7,7 +7,9 @@ from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
     QProgressBar, QFrame
 )
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QUrl, Slot
+from PySide6.QtGui import QPixmap
+from PySide6.QtNetwork import QNetworkAccessManager, QNetworkRequest, QNetworkReply
 from core.utils import format_bytes, format_speed, format_time
 
 
@@ -16,6 +18,7 @@ class ProgressWidget(QWidget):
     
     def __init__(self, parent=None):
         super().__init__(parent)
+        self.network_manager = QNetworkAccessManager(self)
         self.setup_ui()
         self.reset()
     
@@ -29,6 +32,24 @@ class ProgressWidget(QWidget):
         self.video_frame.setFrameShape(QFrame.StyledPanel)
         video_layout = QVBoxLayout(self.video_frame)
         
+        # Top section: Thumbnail + Title
+        top_layout = QHBoxLayout()
+        
+        # Thumbnail
+        self.thumbnail_label = QLabel()
+        self.thumbnail_label.setFixedSize(120, 90)  # 16:9 aspect ratio
+        self.thumbnail_label.setScaledContents(True)
+        self.thumbnail_label.setStyleSheet("""
+            QLabel {
+                border: 1px solid #e0e0e0;
+                border-radius: 4px;
+                background-color: #f5f5f5;
+            }
+        """)
+        self.thumbnail_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.thumbnail_label.setText("No\nThumbnail")
+        top_layout.addWidget(self.thumbnail_label)
+        
         # Video title label
         self.title_label = QLabel("Ready to download")
         self.title_label.setWordWrap(True)
@@ -36,7 +57,9 @@ class ProgressWidget(QWidget):
         font.setBold(True)
         font.setPointSize(10)
         self.title_label.setFont(font)
-        video_layout.addWidget(self.title_label)
+        top_layout.addWidget(self.title_label, 1)
+        
+        video_layout.addLayout(top_layout)
         
         # Video progress bar
         self.video_progress = QProgressBar()
@@ -104,6 +127,59 @@ class ProgressWidget(QWidget):
         self.eta_label.setText("ETA: --")
         self.status_label.setText("")
         self.hide_playlist_progress()
+        self.clear_thumbnail()
+    
+    def clear_thumbnail(self):
+        """Clear the thumbnail display."""
+        self.thumbnail_label.clear()
+        self.thumbnail_label.setStyleSheet("""
+            QLabel {
+                border: 1px solid #e0e0e0;
+                border-radius: 4px;
+                background-color: #f5f5f5;
+            }
+        """)
+        self.thumbnail_label.setText("No\nThumbnail")
+    
+    def load_thumbnail(self, url: str):
+        """
+        Load thumbnail from URL.
+        
+        Args:
+            url: Thumbnail URL
+        """
+        if not url:
+            self.clear_thumbnail()
+            return
+        
+        request = QNetworkRequest(QUrl(url))
+        reply = self.network_manager.get(request)
+        reply.finished.connect(lambda: self._on_thumbnail_loaded(reply))
+    
+    @Slot()
+    def _on_thumbnail_loaded(self, reply: QNetworkReply):
+        """Handle thumbnail loaded from network."""
+        if reply.error() == QNetworkReply.NetworkError.NoError:
+            data = reply.readAll()
+            pixmap = QPixmap()
+            if pixmap.loadFromData(data):
+                # Scale to fit while maintaining aspect ratio
+                scaled_pixmap = pixmap.scaled(
+                    self.thumbnail_label.size(),
+                    Qt.AspectRatioMode.KeepAspectRatio,
+                    Qt.TransformationMode.SmoothTransformation
+                )
+                self.thumbnail_label.setPixmap(scaled_pixmap)
+                self.thumbnail_label.setStyleSheet("""
+                    QLabel {
+                        border: 1px solid #e0e0e0;
+                        border-radius: 4px;
+                    }
+                """)
+        else:
+            self.clear_thumbnail()
+        
+        reply.deleteLater()
     
     def update_progress(self, progress_info: dict):
         """
@@ -143,18 +219,25 @@ class ProgressWidget(QWidget):
             self.speed_label.setText("Speed: --")
             self.eta_label.setText("ETA: Complete")
     
-    def set_current_video(self, title: str):
+    def set_current_video(self, title: str, thumbnail_url: str = None):
         """
         Set the current video being downloaded.
         
         Args:
             title: Video title
+            thumbnail_url: Optional thumbnail URL
         """
         self.title_label.setText(f"Downloading: {title}")
         self.video_progress.setValue(0)
         self.speed_label.setText("Speed: --")
         self.size_label.setText("Size: --")
         self.eta_label.setText("ETA: --")
+        
+        # Load thumbnail if provided
+        if thumbnail_url:
+            self.load_thumbnail(thumbnail_url)
+        else:
+            self.clear_thumbnail()
     
     def show_playlist_progress(self):
         """Show the playlist progress bar."""

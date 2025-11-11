@@ -22,7 +22,7 @@ class DownloadWorker(QObject):
     
     # Signals for progress updates
     progress_updated = Signal(dict)
-    download_started = Signal(str)
+    download_started = Signal(dict)  # Changed to dict with title and thumbnail
     download_completed = Signal(dict)
     download_error = Signal(str)
     playlist_progress = Signal(int, int)
@@ -216,9 +216,10 @@ class DownloadWorker(QObject):
         """
         self.current_video_index = index
         video_title = entry.get('title', f'Video {index}')
+        thumbnail_url = entry.get('thumbnail', '')
         
         self.logger.debug(f"Downloading video {index}/{self.total_videos}: {video_title}")
-        self.download_started.emit(video_title)
+        self.download_started.emit({'title': video_title, 'thumbnail': thumbnail_url})
         self.playlist_progress.emit(index, self.total_videos)
         
         ydl.download([entry['webpage_url']])
@@ -234,6 +235,7 @@ class DownloadWorker(QObject):
         video_title = info.get('title', 'Video')
         video_height = info.get('height', 'unknown')
         video_width = info.get('width', 'unknown')
+        thumbnail_url = info.get('thumbnail', '')
         
         self.logger.debug(
             "Single video detected",
@@ -241,7 +243,7 @@ class DownloadWorker(QObject):
             Resolution=f"{video_width}x{video_height}"
         )
         
-        self.download_started.emit(video_title)
+        self.download_started.emit({'title': video_title, 'thumbnail': thumbnail_url})
         ydl.download([self.url])
     
     def _emit_completion(self):
@@ -282,7 +284,7 @@ class DownloadManager(QObject):
     
     # Signals
     progress_updated = Signal(dict)
-    download_started = Signal(str)
+    download_started = Signal(dict)  # Changed to dict with title and thumbnail
     download_completed = Signal(dict)
     download_error = Signal(str)
     playlist_progress = Signal(int, int)
