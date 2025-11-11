@@ -195,5 +195,9 @@ class QueueItem:
         ]
     
     def can_retry(self) -> bool:
-        """Check if item can be retried."""
-        return self.status in [QueueItemStatus.FAILED, QueueItemStatus.CANCELLED]
+        """Check if item can be retried (redownloaded)."""
+        return self.status in [
+            QueueItemStatus.FAILED, 
+            QueueItemStatus.CANCELLED,
+            QueueItemStatus.COMPLETED  # Allow redownloading completed items
+        ]

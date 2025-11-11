@@ -51,6 +51,7 @@ class QueueManager(QObject):
         self.download_manager.download_completed.connect(self._on_download_completed)
         self.download_manager.download_error.connect(self._on_download_error)
         self.download_manager.progress_updated.connect(self._on_progress_updated)
+        self.download_manager.playlist_progress.connect(self._on_playlist_progress)
     
     def add_to_queue(
         self,
@@ -101,8 +102,25 @@ class QueueManager(QObject):
             self.process_queue()
     
     def stop_processing(self):
-        """Stop processing queue (disable auto-processing)."""
+        """Stop processing queue (disable auto-processing and cancel current download)."""
         self._auto_process = False
+        
+        # If currently processing, cancel the download and reset current item to pending
+        if self._is_processing and self._current_item:
+            self.logger.info("Stopping queue processing - cancelling current download")
+            
+            # Cancel the download
+            self.download_manager.cancel_download()
+            
+            # Reset current item back to pending
+            updated_item = self._current_item.update_status(QueueItemStatus.PENDING)
+            updated_item = updated_item.update_progress(0.0)
+            self.queue.update(updated_item)
+            
+            self._current_item = None
+            self._is_processing = False
+            
+            self.logger.info("Queue processing stopped")
     
     def process_queue(self):
         """Process next item in queue."""
@@ -179,6 +197,22 @@ class QueueManager(QObject):
             self.queue.update(updated_item)
             self._current_item = updated_item
             self.queue_item_progress.emit(updated_item)
+    
+    @Slot(int, int)
+    def _on_playlist_progress(self, current: int, total: int):
+        """Handle playlist progress updates."""
+        if self._current_item:
+            # For playlists, calculate progress based on completed videos
+            # Each video counts as a portion of the total progress
+            # Also factor in current video's individual progress
+            percent = (current / total) * 100.0 if total > 0 else 0
+            
+            updated_item = self._current_item.update_progress(percent, 0)
+            self.queue.update(updated_item)
+            self._current_item = updated_item
+            self.queue_item_progress.emit(updated_item)
+            
+            self.logger.debug(f"Playlist progress: {current}/{total} videos ({percent:.1f}%)")
     
     @Slot(dict)
     def _on_download_completed(self, result: dict):

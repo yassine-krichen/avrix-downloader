@@ -170,9 +170,10 @@ class QueueWidget(QWidget):
         layout.setContentsMargins(2, 2, 2, 2)
         layout.setSpacing(2)
         
-        # Retry button (for failed/cancelled)
-        if item.status in [QueueItemStatus.FAILED, QueueItemStatus.CANCELLED]:
-            retry_btn = QPushButton("Retry")
+        # Retry/Redownload button (for failed/cancelled/completed)
+        if item.status in [QueueItemStatus.FAILED, QueueItemStatus.CANCELLED, QueueItemStatus.COMPLETED]:
+            retry_text = "Redownload" if item.status == QueueItemStatus.COMPLETED else "Retry"
+            retry_btn = QPushButton(retry_text)
             retry_btn.clicked.connect(lambda: self.retry_requested.emit(item.id))
             layout.addWidget(retry_btn)
         
