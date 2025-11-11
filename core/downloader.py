@@ -348,13 +348,13 @@ class DownloadManager(QObject):
     
     def _on_download_completed(self, result: dict):
         """Handle download completion."""
-        self.download_completed.emit(result)
-        self.cleanup()
+        self.cleanup()  # Clean up first
+        self.download_completed.emit(result)  # Then emit signal
     
     def _on_download_error(self, error: str):
         """Handle download error."""
-        self.download_error.emit(error)
-        self.cleanup()
+        self.cleanup()  # Clean up first
+        self.download_error.emit(error)  # Then emit signal
     
     def is_downloading(self) -> bool:
         """Check if a download is currently in progress."""

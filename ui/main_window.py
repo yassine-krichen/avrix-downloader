@@ -9,12 +9,14 @@ from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QLineEdit, QPushButton, QComboBox,
     QFileDialog, QMessageBox, QGroupBox, QRadioButton,
-    QButtonGroup
+    QButtonGroup, QTabWidget
 )
 from PySide6.QtCore import Qt, Slot
 
 from core.facade import DownloaderFacade
+from core.queue_item import QueueItem
 from ui.progress_widget import ProgressWidget
+from ui.queue_widget import QueueWidget
 from ui.ui_state_manager import UIStateManager, UIState
 
 
@@ -36,6 +38,7 @@ class MainWindow(QMainWindow):
         # Initialize UI state manager
         self.ui_state = UIStateManager({
             'download_button': self.download_button,
+            'add_to_queue_button': self.add_to_queue_button,
             'cancel_button': self.cancel_button,
             'url_input': self.url_input,
             'mp4_radio': self.mp4_radio,
@@ -49,6 +52,9 @@ class MainWindow(QMainWindow):
         self.connect_signals()
         self.load_settings()
         
+        # Load queue
+        self.load_queue()
+        
         # Set initial state
         self.ui_state.set_state(UIState.READY, is_video=True)
     
@@ -56,7 +62,7 @@ class MainWindow(QMainWindow):
         """Set up the user interface."""
         self.setWindowTitle("YouTube Downloader")
         self.setMinimumWidth(700)
-        self.setMinimumHeight(500)
+        self.setMinimumHeight(700)  # Increased from 500 to 700
         
         # Central widget
         central_widget = QWidget()
@@ -76,8 +82,8 @@ class MainWindow(QMainWindow):
         # Destination folder section
         self._setup_destination_section(main_layout)
         
-        # Progress section
-        self._setup_progress_section(main_layout)
+        # Tabs for progress and queue
+        self._setup_tabs_section(main_layout)
         
         # Control buttons
         self._setup_control_buttons(main_layout)
@@ -175,6 +181,45 @@ class MainWindow(QMainWindow):
         
         layout.addWidget(dest_group)
     
+    def _setup_tabs_section(self, layout: QVBoxLayout):
+        """Set up tabs for progress and queue."""
+        tab_widget = QTabWidget()
+        
+        # Progress tab
+        progress_tab = QWidget()
+        progress_layout = QVBoxLayout(progress_tab)
+        self.progress_widget = ProgressWidget()
+        progress_layout.addWidget(self.progress_widget)
+        tab_widget.addTab(progress_tab, "Current Download")
+        
+        # Queue tab
+        queue_tab = QWidget()
+        queue_layout = QVBoxLayout(queue_tab)
+        self.queue_widget = QueueWidget()
+        queue_layout.addWidget(self.queue_widget)
+        
+        # Queue control buttons
+        queue_control_layout = QHBoxLayout()
+        queue_control_layout.addStretch()
+        
+        self.start_queue_button = QPushButton("Start Queue")
+        self.start_queue_button.setMinimumWidth(120)
+        self.start_queue_button.clicked.connect(self.start_queue_processing)
+        queue_control_layout.addWidget(self.start_queue_button)
+        
+        self.stop_queue_button = QPushButton("Stop Queue")
+        self.stop_queue_button.setMinimumWidth(120)
+        self.stop_queue_button.clicked.connect(self.stop_queue_processing)
+        self.stop_queue_button.setEnabled(False)
+        queue_control_layout.addWidget(self.stop_queue_button)
+        
+        queue_control_layout.addStretch()
+        queue_layout.addLayout(queue_control_layout)
+        
+        tab_widget.addTab(queue_tab, "Download Queue")
+        
+        layout.addWidget(tab_widget)
+    
     def _setup_progress_section(self, layout: QVBoxLayout):
         """Set up progress section."""
         progress_group = QGroupBox("Download Progress")
@@ -196,6 +241,12 @@ class MainWindow(QMainWindow):
         self.download_button.clicked.connect(self.start_download)
         button_layout.addWidget(self.download_button)
         
+        self.add_to_queue_button = QPushButton("Add to Queue")
+        self.add_to_queue_button.setMinimumWidth(150)
+        self.add_to_queue_button.setMinimumHeight(40)
+        self.add_to_queue_button.clicked.connect(self.add_to_queue)
+        button_layout.addWidget(self.add_to_queue_button)
+        
         self.cancel_button = QPushButton("Cancel")
         self.cancel_button.setMinimumWidth(100)
         self.cancel_button.setMinimumHeight(40)
@@ -213,12 +264,36 @@ class MainWindow(QMainWindow):
     
     def connect_signals(self):
         """Connect download manager signals to slots."""
+        # Download manager signals
         manager = self.facade.get_download_manager()
         manager.progress_updated.connect(self.on_progress_updated)
         manager.download_started.connect(self.on_download_started)
         manager.download_completed.connect(self.on_download_completed)
         manager.download_error.connect(self.on_download_error)
         manager.playlist_progress.connect(self.on_playlist_progress)
+        
+        # Queue signals (from DownloadQueue)
+        queue = self.facade.queue
+        queue.item_added.connect(self.on_queue_updated)
+        queue.item_removed.connect(self.on_queue_updated)
+        queue.item_updated.connect(self.on_queue_item_updated)
+        queue.queue_changed.connect(self.on_queue_updated)  # Added for clear operations
+        queue.queue_cleared.connect(self.on_queue_updated)  # Added for clear all
+        
+        # Queue manager signals
+        queue_manager = self.facade.get_queue_manager()
+        queue_manager.queue_item_started.connect(self.on_queue_item_started)
+        queue_manager.queue_item_completed.connect(self.on_queue_item_completed)
+        queue_manager.queue_item_failed.connect(self.on_queue_item_failed)
+        queue_manager.queue_processing_finished.connect(self.on_queue_processing_finished)
+        
+        # Queue widget signals
+        self.queue_widget.retry_requested.connect(self.retry_queue_item)
+        self.queue_widget.remove_requested.connect(self.remove_from_queue)
+        self.queue_widget.move_up_requested.connect(self.move_queue_item_up)
+        self.queue_widget.move_down_requested.connect(self.move_queue_item_down)
+        self.queue_widget.clear_finished_requested.connect(self.clear_finished_queue)
+        self.queue_widget.clear_all_requested.connect(self.clear_all_queue)
     
     def load_settings(self):
         """Load saved settings from configuration."""
@@ -391,6 +466,170 @@ class MainWindow(QMainWindow):
     def on_playlist_progress(self, current: int, total: int):
         """Handle playlist progress updates."""
         self.progress_widget.update_playlist_progress(current, total)
+    
+    # Queue-related methods
+    def load_queue(self):
+        """Load and display queue items."""
+        items = self.facade.get_queue_items()
+        self.queue_widget.update_queue(items)
+    
+    @Slot()
+    def add_to_queue(self):
+        """Add current download options to queue."""
+        # Get download options
+        url = self.url_input.text().strip()
+        dest_path = self.dest_input.text()
+        format_type = 'mp3' if self.mp3_radio.isChecked() else 'mp4'
+        quality = self.quality_combo.currentData() if self.mp4_radio.isChecked() else 'best'
+        
+        # Validate using facade
+        is_valid, error_message = self.facade.validate_download_options(
+            url, dest_path, format_type, quality
+        )
+        
+        if not is_valid:
+            QMessageBox.warning(self, "Validation Error", error_message)
+            return
+        
+        # Add to queue through facade
+        item = self.facade.add_to_queue(url, dest_path, format_type, quality)
+        
+        if item is None:
+            QMessageBox.information(
+                self,
+                "Duplicate Item",
+                "This URL is already in the queue."
+            )
+            return
+        
+        # Save settings
+        self.save_settings()
+        
+        # Show confirmation
+        QMessageBox.information(
+            self,
+            "Added to Queue",
+            f"Added to queue:\n{item.title or url}"
+        )
+        
+        # Clear URL input for next item
+        self.url_input.clear()
+    
+    @Slot()
+    def start_queue_processing(self):
+        """Start processing the download queue."""
+        self.facade.start_queue_processing()
+        self.start_queue_button.setEnabled(False)
+        self.stop_queue_button.setEnabled(True)
+    
+    @Slot()
+    def stop_queue_processing(self):
+        """Stop processing the download queue."""
+        self.facade.stop_queue_processing()
+        self.start_queue_button.setEnabled(True)
+        self.stop_queue_button.setEnabled(False)
+    
+    @Slot(str)
+    def retry_queue_item(self, item_id: str):
+        """Retry a failed queue item."""
+        self.facade.retry_queue_item(item_id)
+    
+    @Slot(str)
+    def remove_from_queue(self, item_id: str):
+        """Remove an item from queue."""
+        self.facade.remove_from_queue(item_id)
+    
+    @Slot(str)
+    def move_queue_item_up(self, item_id: str):
+        """Move queue item up in priority."""
+        items = self.facade.get_queue_items()
+        for i, item in enumerate(items):
+            if item.id == item_id and i > 0:
+                self.facade.move_queue_item(item_id, i - 1)
+                break
+    
+    @Slot(str)
+    def move_queue_item_down(self, item_id: str):
+        """Move queue item down in priority."""
+        items = self.facade.get_queue_items()
+        for i, item in enumerate(items):
+            if item.id == item_id and i < len(items) - 1:
+                self.facade.move_queue_item(item_id, i + 1)
+                break
+    
+    @Slot()
+    def clear_finished_queue(self):
+        """Clear finished items from queue."""
+        reply = QMessageBox.question(
+            self,
+            "Clear Finished",
+            "Remove all completed items from queue?",
+            QMessageBox.Yes | QMessageBox.No
+        )
+        
+        if reply == QMessageBox.Yes:
+            self.facade.clear_finished_from_queue()
+    
+    @Slot()
+    def clear_all_queue(self):
+        """Clear all items from queue."""
+        reply = QMessageBox.question(
+            self,
+            "Clear Queue",
+            "Remove all items from queue?",
+            QMessageBox.Yes | QMessageBox.No
+        )
+        
+        if reply == QMessageBox.Yes:
+            self.facade.clear_queue()
+    
+    @Slot()
+    def on_queue_updated(self):
+        """Handle queue updates."""
+        items = self.facade.get_queue_items()
+        self.queue_widget.update_queue(items)
+    
+    @Slot(QueueItem)
+    def on_queue_item_updated(self, item: QueueItem):
+        """Handle individual queue item update."""
+        self.queue_widget.update_item(item)
+    
+    @Slot(QueueItem)
+    def on_queue_item_started(self, item: QueueItem):
+        """Handle queue item started."""
+        self.queue_widget.update_item(item)
+    
+    @Slot(QueueItem)
+    def on_queue_item_completed(self, item: QueueItem):
+        """Handle queue item completion."""
+        self.queue_widget.update_item(item)
+    
+    @Slot(QueueItem, str)
+    def on_queue_item_failed(self, item: QueueItem, error: str):
+        """Handle queue item failure."""
+        self.queue_widget.update_item(item)
+    
+    @Slot()
+    def on_queue_processing_finished(self):
+        """Handle queue processing completion."""
+        self.start_queue_button.setEnabled(True)
+        self.stop_queue_button.setEnabled(False)
+        
+        stats = self.facade.get_queue_stats()
+        if stats['failed'] > 0:
+            QMessageBox.warning(
+                self,
+                "Queue Completed",
+                f"Queue processing finished.\n\n"
+                f"Completed: {stats['completed']}\n"
+                f"Failed: {stats['failed']}"
+            )
+        else:
+            QMessageBox.information(
+                self,
+                "Queue Completed",
+                f"All {stats['completed']} items downloaded successfully!"
+            )
     
     def closeEvent(self, event):
         """Handle window close event."""

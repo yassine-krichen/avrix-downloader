@@ -3,7 +3,7 @@ Application facade to simplify interaction with core services.
 Follows the Facade pattern to provide a simple interface.
 """
 
-from typing import Tuple, Optional
+from typing import Tuple, Optional, List
 from pathlib import Path
 
 from core.downloader import DownloadManager
@@ -11,6 +11,10 @@ from core.utils import ConfigManager, URLValidator
 from core.settings_service import SettingsService, JsonSettingsRepository, AppSettings
 from core.validators import URLInputValidator, PathValidator, DownloadOptionsValidator
 from core.logger import get_logger, set_logger, ConsoleLogger
+from core.download_queue import DownloadQueue
+from core.queue_storage import JsonQueueStorage
+from core.queue_manager import QueueManager
+from core.queue_item import QueueItem
 
 
 class DownloaderFacade:
@@ -55,7 +59,12 @@ class DownloaderFacade:
         # Initialize download manager
         self.download_manager = DownloadManager()
         
-        self.logger.info("Application initialized")
+        # Initialize queue system
+        queue_storage = JsonQueueStorage()
+        self.queue = DownloadQueue(queue_storage)
+        self.queue_manager = QueueManager(self.queue, self.download_manager)
+        
+        self.logger.info("Application initialized with queue management")
     
     # Settings operations
     def get_setting(self, key: str, default=None):
@@ -132,7 +141,7 @@ class DownloaderFacade:
         quality: str
     ):
         """
-        Start a download operation.
+        Start a download operation (direct download, not queued).
         
         Args:
             url: YouTube URL
@@ -154,6 +163,92 @@ class DownloaderFacade:
     def is_downloading(self) -> bool:
         """Check if a download is in progress."""
         return self.download_manager.is_downloading()
+    
+    # Queue operations
+    def add_to_queue(
+        self,
+        url: str,
+        destination_path: str,
+        format_type: str,
+        quality: str,
+        title: Optional[str] = None
+    ) -> Optional[QueueItem]:
+        """
+        Add download to queue.
+        
+        Args:
+            url: YouTube URL
+            destination_path: Download destination
+            format_type: Format type ('mp3' or 'mp4')
+            quality: Quality setting
+            title: Optional video title
+            
+        Returns:
+            Created queue item or None if duplicate
+        """
+        url_type = self.get_url_type(url)
+        return self.queue_manager.add_to_queue(
+            url=url,
+            download_path=destination_path,
+            format_type=format_type,
+            quality=quality,
+            title=title,
+            url_type=url_type
+        )
+    
+    def remove_from_queue(self, item_id: str):
+        """Remove item from queue."""
+        self.queue_manager.remove_item(item_id)
+    
+    def retry_queue_item(self, item_id: str):
+        """Retry a failed or cancelled queue item."""
+        self.queue_manager.retry_item(item_id)
+    
+    def start_queue_processing(self):
+        """Start processing the queue."""
+        self.queue_manager.start_processing()
+    
+    def stop_queue_processing(self):
+        """Stop processing the queue."""
+        self.queue_manager.stop_processing()
+    
+    def get_queue_items(self) -> List[QueueItem]:
+        """Get all items in queue."""
+        return self.queue.get_all()
+    
+    def get_queue_stats(self) -> dict:
+        """Get queue statistics."""
+        return self.queue_manager.get_queue_stats()
+    
+    def clear_finished_from_queue(self):
+        """Remove all finished items from queue."""
+        self.queue.clear_finished()
+    
+    def clear_queue(self):
+        """Remove all items from queue."""
+        self.queue.clear_all()
+    
+    def move_queue_item(self, item_id: str, new_position: int) -> bool:
+        """
+        Move queue item to new position.
+        
+        Args:
+            item_id: ID of item to move
+            new_position: New position in queue
+            
+        Returns:
+            True if moved successfully
+        """
+        return self.queue.move(item_id, new_position)
+    
+    def get_queue_manager(self) -> QueueManager:
+        """
+        Get queue manager for signal connections.
+        
+        Returns:
+            QueueManager instance
+        """
+        return self.queue_manager
     
     def get_download_manager(self) -> DownloadManager:
         """

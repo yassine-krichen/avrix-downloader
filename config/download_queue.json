@@ -1,0 +1,24 @@
+{
+  "version": "1.0",
+  "items": [
+    {
+      "id": "ab090dce-1a58-4326-853e-217e408c1a49",
+      "url": "https://youtu.be/iKnwVvXkWq0?si=-tQ7iuOo_G1pKQfi",
+      "download_path": "C:/Users/user/Downloads/final TEST",
+      "format_type": "mp3",
+      "quality": "best",
+      "title": "[Official] Celeste B-Sides - 05 - 2 Mello - Mirror Temple (Mirror Magic Mix)",
+      "thumbnail_url": null,
+      "duration": null,
+      "url_type": "video",
+      "status": "completed",
+      "progress": 100.0,
+      "error_message": null,
+      "added_at": "2025-11-11T11:33:18.835995",
+      "started_at": "2025-11-11T11:33:30.780943",
+      "completed_at": "2025-11-11T11:33:43.649348",
+      "file_size": null,
+      "download_speed": 9233073.675493065
+    }
+  ]
+}
