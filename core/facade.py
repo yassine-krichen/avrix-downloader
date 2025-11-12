@@ -45,7 +45,8 @@ class DownloaderFacade:
             quality='1080p',
             last_url='',
             download_subtitles=False,
-            subtitle_languages='en'
+            subtitle_languages='en',
+            embed_thumbnail=False
         )
         settings_repo = JsonSettingsRepository(self.config_manager)
         self.settings_service = SettingsService(settings_repo, default_settings)
@@ -142,7 +143,8 @@ class DownloaderFacade:
         format_type: str,
         quality: str,
         download_subtitles: bool = False,
-        subtitle_languages: str = 'en'
+        subtitle_languages: str = 'en',
+        embed_thumbnail: bool = False
     ):
         """
         Start a download operation (direct download, not queued).
@@ -154,6 +156,7 @@ class DownloaderFacade:
             quality: Quality setting
             download_subtitles: Whether to download subtitles
             subtitle_languages: Comma-separated language codes
+            embed_thumbnail: Whether to embed thumbnail in audio files
         """
         self.download_manager.start_download(
             url,
@@ -161,7 +164,8 @@ class DownloaderFacade:
             format_type,
             quality,
             download_subtitles,
-            subtitle_languages
+            subtitle_languages,
+            embed_thumbnail
         )
     
     def cancel_download(self):
@@ -181,7 +185,8 @@ class DownloaderFacade:
         quality: str,
         title: Optional[str] = None,
         download_subtitles: bool = False,
-        subtitle_languages: str = 'en'
+        subtitle_languages: str = 'en',
+        embed_thumbnail: bool = False
     ) -> Optional[QueueItem]:
         """
         Add download to queue.
@@ -194,6 +199,7 @@ class DownloaderFacade:
             title: Optional video title
             download_subtitles: Whether to download subtitles
             subtitle_languages: Comma-separated language codes
+            embed_thumbnail: Whether to embed thumbnail in audio files
             
         Returns:
             Created queue item or None if duplicate
@@ -207,7 +213,8 @@ class DownloaderFacade:
             title=title,
             url_type=url_type,
             download_subtitles=download_subtitles,
-            subtitle_languages=subtitle_languages
+            subtitle_languages=subtitle_languages,
+            embed_thumbnail=embed_thumbnail
         )
     
     def remove_from_queue(self, item_id: str):

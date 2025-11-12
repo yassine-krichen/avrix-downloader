@@ -28,7 +28,8 @@ class DownloadWorker(QObject):
     playlist_progress = Signal(int, int)
     
     def __init__(self, url: str, download_path: str, format_type: str, quality: str = "best", 
-                 download_subtitles: bool = False, subtitle_languages: str = 'en'):
+                 download_subtitles: bool = False, subtitle_languages: str = 'en',
+                 embed_thumbnail: bool = False):
         super().__init__()
         self.url = url
         self.download_path = download_path
@@ -36,6 +37,7 @@ class DownloadWorker(QObject):
         self.quality = quality
         self.download_subtitles = download_subtitles
         self.subtitle_languages = subtitle_languages
+        self.embed_thumbnail = embed_thumbnail
         self.is_cancelled = False
         self.current_video_index = 0
         self.total_videos = 1
@@ -150,7 +152,8 @@ class DownloadWorker(QObject):
             download_path=self.download_path,
             filename_template=filename_template,
             download_subtitles=self.download_subtitles,
-            subtitle_languages=self.subtitle_languages
+            subtitle_languages=self.subtitle_languages,
+            embed_thumbnail=self.embed_thumbnail
         )
         
         # Build options using builder
@@ -301,7 +304,8 @@ class DownloadManager(QObject):
         self.logger = get_logger()
     
     def start_download(self, url: str, download_path: str, format_type: str, quality: str = "best",
-                      download_subtitles: bool = False, subtitle_languages: str = 'en'):
+                      download_subtitles: bool = False, subtitle_languages: str = 'en',
+                      embed_thumbnail: bool = False):
         """
         Start a new download operation.
         
@@ -312,13 +316,14 @@ class DownloadManager(QObject):
             quality: Quality setting for video
             download_subtitles: Whether to download subtitles
             subtitle_languages: Comma-separated language codes
+            embed_thumbnail: Whether to embed thumbnail in audio files
         """
         # Clean up any existing download
         self.cleanup()
         
         # Create worker and thread
         self.worker = DownloadWorker(url, download_path, format_type, quality, 
-                                    download_subtitles, subtitle_languages)
+                                    download_subtitles, subtitle_languages, embed_thumbnail)
         self.thread = QThread()
         
         # Move worker to thread

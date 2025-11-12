@@ -17,6 +17,7 @@ class FormatOptions:
     filename_template: str
     download_subtitles: bool = False
     subtitle_languages: str = 'en'
+    embed_thumbnail: bool = False
     
     
 class FormatStrategy(ABC):
@@ -144,11 +145,22 @@ class FormatBuilder:
             options['writesubtitles'] = True
             options['writeautomaticsub'] = True  # Include auto-generated subs
             options['subtitleslangs'] = self.format_options.subtitle_languages.split(',')
+        
+        # Add thumbnail options if enabled
+        if self.format_options.embed_thumbnail:
+            options['writethumbnail'] = True
             
         # Add format-specific options
         options['format'] = self.strategy.get_format_string()
         options['postprocessors'] = self.strategy.get_postprocessors()
         options.update(self.strategy.get_additional_options())
+        
+        # Add thumbnail embedding postprocessor if enabled
+        if self.format_options.embed_thumbnail:
+            options['postprocessors'].append({
+                'key': 'EmbedThumbnail',
+                'already_have_thumbnail': False
+            })
         
         # Add subtitle postprocessor if enabled and format is video
         if self.format_options.download_subtitles:

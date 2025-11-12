@@ -37,6 +37,7 @@ class QueueItem:
     quality: str
     download_subtitles: bool = False
     subtitle_languages: str = 'en'
+    embed_thumbnail: bool = False
     
     # Metadata
     title: Optional[str] = None
@@ -75,7 +76,8 @@ class QueueItem:
         title: Optional[str] = None,
         url_type: Optional[str] = None,
         download_subtitles: bool = False,
-        subtitle_languages: str = 'en'
+        subtitle_languages: str = 'en',
+        embed_thumbnail: bool = False
     ) -> 'QueueItem':
         """
         Factory method to create a new queue item.
@@ -89,6 +91,7 @@ class QueueItem:
             url_type: Optional URL type ('video' or 'playlist')
             download_subtitles: Whether to download subtitles
             subtitle_languages: Comma-separated language codes (default: 'en')
+            embed_thumbnail: Whether to embed thumbnail in audio files
             
         Returns:
             New QueueItem instance
@@ -103,6 +106,7 @@ class QueueItem:
             url_type=url_type,
             download_subtitles=download_subtitles,
             subtitle_languages=subtitle_languages,
+            embed_thumbnail=embed_thumbnail,
             added_at=datetime.now().isoformat()
         )
     

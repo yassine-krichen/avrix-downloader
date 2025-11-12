@@ -56,6 +56,7 @@ class MainWindow(QMainWindow):
             'browse_button': self.browse_button,
             'open_folder_button': self.open_folder_button,
             'subtitle_checkbox': self.subtitle_checkbox,
+            'thumbnail_checkbox': self.thumbnail_checkbox,
         })
         
         # Connect signals and load settings
@@ -80,7 +81,7 @@ class MainWindow(QMainWindow):
         # Set window icon if available
         icon_path = "assets/icon.png"
         if os.path.exists(icon_path):
-            self.setWindowIcon(QIcon(icon_path))
+            self.setWindowIcon(QIcon(icon_path)) 
         
         # Create menu bar
         self._setup_menu_bar()
@@ -330,6 +331,33 @@ class MainWindow(QMainWindow):
         
         format_layout.addLayout(subtitle_layout)
         
+        # Thumbnail embedding option
+        thumbnail_layout = QHBoxLayout()
+        thumbnail_layout.setContentsMargins(0, 8, 0, 0)
+        
+        self.thumbnail_checkbox = QCheckBox("Embed Thumbnail")
+        self.thumbnail_checkbox.setToolTip(
+            "Automatically embed video thumbnail in audio files.\n"
+            "Note: Only works for audio (MP3) format."
+        )
+        thumbnail_layout.addWidget(self.thumbnail_checkbox)
+        
+        # Info button for thumbnails
+        thumbnail_info = QToolButton()
+        thumbnail_info.setText("?")
+        thumbnail_info.setToolTip(
+            "Embeds the video thumbnail as album artwork in audio files.\n"
+            "This adds the thumbnail image as metadata (ID3 tags) in MP3 files.\n\n"
+            "Note: This feature only applies to audio (MP3) downloads.\n"
+            "For videos, thumbnails are not embedded."
+        )
+        thumbnail_info.setObjectName("infoButton")
+        thumbnail_info.setCursor(Qt.CursorShape.WhatsThisCursor)
+        thumbnail_layout.addWidget(thumbnail_info)
+        thumbnail_layout.addStretch()
+        
+        format_layout.addLayout(thumbnail_layout)
+        
         # Connect format change
         self.mp4_radio.toggled.connect(self.on_format_changed)
         self.mp3_radio.toggled.connect(self.on_format_changed)
@@ -525,6 +553,10 @@ class MainWindow(QMainWindow):
         # Load subtitle settings
         download_subtitles = self.facade.get_setting('download_subtitles', False)
         self.subtitle_checkbox.setChecked(download_subtitles)
+        
+        # Load thumbnail settings
+        embed_thumbnail = self.facade.get_setting('embed_thumbnail', False)
+        self.thumbnail_checkbox.setChecked(embed_thumbnail)
     
     def save_settings(self):
         """Save current settings to configuration."""
@@ -533,7 +565,8 @@ class MainWindow(QMainWindow):
             format_type='mp3' if self.mp3_radio.isChecked() else 'mp4',
             quality=self.quality_combo.currentData(),
             last_url=self.url_input.text(),
-            download_subtitles=self.subtitle_checkbox.isChecked()
+            download_subtitles=self.subtitle_checkbox.isChecked(),
+            embed_thumbnail=self.thumbnail_checkbox.isChecked()
         )
     
     @Slot()
@@ -609,7 +642,8 @@ class MainWindow(QMainWindow):
         self.facade.start_download(
             url, dest_path, format_type, quality,
             download_subtitles=self.subtitle_checkbox.isChecked(),
-            subtitle_languages='en'
+            subtitle_languages='en',
+            embed_thumbnail=self.thumbnail_checkbox.isChecked()
         )
     
     @Slot()
@@ -712,7 +746,8 @@ class MainWindow(QMainWindow):
         item = self.facade.add_to_queue(
             url, dest_path, format_type, quality,
             download_subtitles=self.subtitle_checkbox.isChecked(),
-            subtitle_languages='en'
+            subtitle_languages='en',
+            embed_thumbnail=self.thumbnail_checkbox.isChecked()
         )
         
         if item is None:

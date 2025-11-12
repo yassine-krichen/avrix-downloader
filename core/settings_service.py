@@ -17,6 +17,7 @@ class AppSettings:
     last_url: str = ""
     download_subtitles: bool = False
     subtitle_languages: str = 'en'
+    embed_thumbnail: bool = False
 
 
 class ISettingsRepository(ABC):

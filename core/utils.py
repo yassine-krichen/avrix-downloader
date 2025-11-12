@@ -20,7 +20,8 @@ class ConfigManager:
         'quality': 'hd',
         'last_url': '',
         'download_subtitles': False,
-        'subtitle_languages': 'en'
+        'subtitle_languages': 'en',
+        'embed_thumbnail': False
     }
     
     def __init__(self, config_path: Optional[str] = None):
