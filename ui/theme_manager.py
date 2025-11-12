@@ -325,6 +325,36 @@ class ThemeManager(QObject):
                 border: 2px solid #1976d2;
             }
             
+            /* CheckBox */
+            QCheckBox {
+                color: #424242;
+                font-size: 13px;
+                spacing: 8px;
+                padding: 4px 0;
+            }
+            
+            QCheckBox::indicator {
+                width: 18px;
+                height: 18px;
+                border: 2px solid #bdbdbd;
+                border-radius: 3px;
+                background-color: #ffffff;
+            }
+            
+            QCheckBox::indicator:hover {
+                border-color: #1976d2;
+            }
+            
+            QCheckBox::indicator:checked {
+                background-color: #1976d2;
+                border: 2px solid #1976d2;
+                image: url(data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIiIGhlaWdodD0iMTIiIHZpZXdCb3g9IjAgMCAxMiAxMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cGF0aCBkPSJNMTAgM0w0LjUgOC41TDIgNiIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiLz48L3N2Zz4=);
+            }
+            
+            QCheckBox::indicator:checked:hover {
+                background-color: #1565c0;
+            }
+            
             /* Progress Bar */
             QProgressBar {
                 border: none;
@@ -669,6 +699,36 @@ class ThemeManager(QObject):
             QRadioButton::indicator:checked {
                 background-color: #1976d2;
                 border: 2px solid #1976d2;
+            }
+            
+            /* CheckBox */
+            QCheckBox {
+                color: #b0b0b0;
+                font-size: 13px;
+                spacing: 8px;
+                padding: 4px 0;
+            }
+            
+            QCheckBox::indicator {
+                width: 18px;
+                height: 18px;
+                border: 2px solid #4a4a4a;
+                border-radius: 3px;
+                background-color: #2a2a2a;
+            }
+            
+            QCheckBox::indicator:hover {
+                border-color: #64b5f6;
+            }
+            
+            QCheckBox::indicator:checked {
+                background-color: #1976d2;
+                border: 2px solid #1976d2;
+                image: url(data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIiIGhlaWdodD0iMTIiIHZpZXdCb3g9IjAgMCAxMiAxMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cGF0aCBkPSJNMTAgM0w0LjUgOC41TDIgNiIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiLz48L3N2Zz4=);
+            }
+            
+            QCheckBox::indicator:checked:hover {
+                background-color: #1565c0;
             }
             
             /* Progress Bar */

@@ -15,6 +15,8 @@ class AppSettings:
     format_type: str
     quality: str
     last_url: str = ""
+    download_subtitles: bool = False
+    subtitle_languages: str = 'en'
 
 
 class ISettingsRepository(ABC):

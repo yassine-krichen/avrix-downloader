@@ -60,7 +60,9 @@ class QueueManager(QObject):
         format_type: str,
         quality: str,
         title: Optional[str] = None,
-        url_type: Optional[str] = None
+        url_type: Optional[str] = None,
+        download_subtitles: bool = False,
+        subtitle_languages: str = 'en'
     ) -> Optional[QueueItem]:
         """
         Add new item to queue.
@@ -72,6 +74,8 @@ class QueueManager(QObject):
             quality: Quality setting
             title: Optional video title
             url_type: Optional URL type
+            download_subtitles: Whether to download subtitles
+            subtitle_languages: Comma-separated language codes
             
         Returns:
             Created queue item or None if duplicate
@@ -82,7 +86,9 @@ class QueueManager(QObject):
             format_type=format_type,
             quality=quality,
             title=title,
-            url_type=url_type
+            url_type=url_type,
+            download_subtitles=download_subtitles,
+            subtitle_languages=subtitle_languages
         )
         
         if self.queue.add(item):
@@ -170,7 +176,9 @@ class QueueManager(QObject):
             url=item.url,
             download_path=item.download_path,
             format_type=item.format_type,
-            quality=item.quality
+            quality=item.quality,
+            download_subtitles=item.download_subtitles,
+            subtitle_languages=item.subtitle_languages
         )
     
     @Slot(str)

@@ -15,6 +15,8 @@ class FormatOptions:
     quality: str      # Quality setting
     download_path: str
     filename_template: str
+    download_subtitles: bool = False
+    subtitle_languages: str = 'en'
     
     
 class FormatStrategy(ABC):
@@ -137,10 +139,26 @@ class FormatBuilder:
             'windowsfilenames': True,
         }
         
+        # Add subtitle options if enabled
+        if self.format_options.download_subtitles:
+            options['writesubtitles'] = True
+            options['writeautomaticsub'] = True  # Include auto-generated subs
+            options['subtitleslangs'] = self.format_options.subtitle_languages.split(',')
+            
         # Add format-specific options
         options['format'] = self.strategy.get_format_string()
         options['postprocessors'] = self.strategy.get_postprocessors()
         options.update(self.strategy.get_additional_options())
+        
+        # Add subtitle postprocessor if enabled and format is video
+        if self.format_options.download_subtitles:
+            if self.format_options.format_type == 'mp4':
+                # Embed subtitles in video
+                options['postprocessors'].append({
+                    'key': 'FFmpegEmbedSubtitle',
+                    'already_have_subtitle': False
+                })
+            # For MP3, subtitles will be saved as separate .srt files
         
         return options
     

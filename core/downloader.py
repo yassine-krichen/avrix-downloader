@@ -27,12 +27,15 @@ class DownloadWorker(QObject):
     download_error = Signal(str)
     playlist_progress = Signal(int, int)
     
-    def __init__(self, url: str, download_path: str, format_type: str, quality: str = "best"):
+    def __init__(self, url: str, download_path: str, format_type: str, quality: str = "best", 
+                 download_subtitles: bool = False, subtitle_languages: str = 'en'):
         super().__init__()
         self.url = url
         self.download_path = download_path
         self.format_type = format_type
         self.quality = quality
+        self.download_subtitles = download_subtitles
+        self.subtitle_languages = subtitle_languages
         self.is_cancelled = False
         self.current_video_index = 0
         self.total_videos = 1
@@ -145,7 +148,9 @@ class DownloadWorker(QObject):
             format_type=self.format_type,
             quality=self.quality,
             download_path=self.download_path,
-            filename_template=filename_template
+            filename_template=filename_template,
+            download_subtitles=self.download_subtitles,
+            subtitle_languages=self.subtitle_languages
         )
         
         # Build options using builder
@@ -295,7 +300,8 @@ class DownloadManager(QObject):
         self.thread: Optional[QThread] = None
         self.logger = get_logger()
     
-    def start_download(self, url: str, download_path: str, format_type: str, quality: str = "best"):
+    def start_download(self, url: str, download_path: str, format_type: str, quality: str = "best",
+                      download_subtitles: bool = False, subtitle_languages: str = 'en'):
         """
         Start a new download operation.
         
@@ -304,12 +310,15 @@ class DownloadManager(QObject):
             download_path: Directory to save downloaded files
             format_type: 'mp3' for audio, 'mp4' for video
             quality: Quality setting for video
+            download_subtitles: Whether to download subtitles
+            subtitle_languages: Comma-separated language codes
         """
         # Clean up any existing download
         self.cleanup()
         
         # Create worker and thread
-        self.worker = DownloadWorker(url, download_path, format_type, quality)
+        self.worker = DownloadWorker(url, download_path, format_type, quality, 
+                                    download_subtitles, subtitle_languages)
         self.thread = QThread()
         
         # Move worker to thread

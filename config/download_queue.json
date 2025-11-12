@@ -1,4 +1,29 @@
 {
   "version": "1.0",
-  "items": []
+  "items": [
+    {
+      "id": "eebf3af9-b0f5-4ce1-8283-d28c95c5881e",
+      "url": "https://youtu.be/4bQ2qhfJUjA?si=p-JEFkxQqEuorHrg",
+      "download_path": "C:/Users/user/Downloads/final TEST",
+      "format_type": "mp3",
+      "quality": "best",
+      "download_subtitles": true,
+      "subtitle_languages": "en",
+      "title": {
+        "thumbnail": "https://i.ytimg.com/vi_webp/4bQ2qhfJUjA/maxresdefault.webp",
+        "title": "This neural interface writes code from my brain waves…"
+      },
+      "thumbnail_url": null,
+      "duration": null,
+      "url_type": "video",
+      "status": "completed",
+      "progress": 100.0,
+      "error_message": null,
+      "added_at": "2025-11-12T22:32:51.279046",
+      "started_at": "2025-11-12T22:32:55.368068",
+      "completed_at": "2025-11-12T22:33:08.391280",
+      "file_size": null,
+      "download_speed": 5861588.12165015
+    }
+  ]
 }

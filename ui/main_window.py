@@ -9,7 +9,7 @@ from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QLineEdit, QPushButton, QComboBox,
     QFileDialog, QMessageBox, QGroupBox, QRadioButton,
-    QButtonGroup, QTabWidget, QMenu, QToolButton
+    QButtonGroup, QTabWidget, QMenu, QToolButton, QCheckBox
 )
 from PySide6.QtCore import Qt, Slot, QUrl, QSize
 from PySide6.QtGui import QIcon, QDragEnterEvent, QDropEvent, QAction, QFont
@@ -55,6 +55,7 @@ class MainWindow(QMainWindow):
             'quality_combo': self.quality_combo,
             'browse_button': self.browse_button,
             'open_folder_button': self.open_folder_button,
+            'subtitle_checkbox': self.subtitle_checkbox,
         })
         
         # Connect signals and load settings
@@ -71,7 +72,7 @@ class MainWindow(QMainWindow):
         """Set up the user interface."""
         self.setWindowTitle("YouTube Downloader Pro")
         self.setMinimumWidth(700)
-        self.setMinimumHeight(700)
+        self.setMinimumHeight(800)
         
         # Enable drag and drop
         self.setAcceptDrops(True)
@@ -300,6 +301,35 @@ class MainWindow(QMainWindow):
         
         format_layout.addLayout(config_row)
         
+        # Subtitle option
+        subtitle_layout = QHBoxLayout()
+        subtitle_layout.setContentsMargins(0, 8, 0, 0)
+        
+        self.subtitle_checkbox = QCheckBox("Download Subtitles")
+        self.subtitle_checkbox.setToolTip(
+            "Download available subtitles for the video.\n"
+            "Video (MP4): Embedded in video file\n"
+            "Audio (MP3): Saved as separate .srt file"
+        )
+        subtitle_layout.addWidget(self.subtitle_checkbox)
+        
+        # Info button for subtitles
+        subtitle_info = QToolButton()
+        subtitle_info.setText("?")
+        subtitle_info.setToolTip(
+            "Downloads available subtitles/closed captions.\n"
+            "Language: English (en) by default.\n"
+            "Includes auto-generated subtitles if manual ones unavailable.\n\n"
+            "For videos: Subtitles embedded in MP4 file.\n"
+            "For audio: Subtitles saved as separate .srt file."
+        )
+        subtitle_info.setObjectName("infoButton")
+        subtitle_info.setCursor(Qt.CursorShape.WhatsThisCursor)
+        subtitle_layout.addWidget(subtitle_info)
+        subtitle_layout.addStretch()
+        
+        format_layout.addLayout(subtitle_layout)
+        
         # Connect format change
         self.mp4_radio.toggled.connect(self.on_format_changed)
         self.mp3_radio.toggled.connect(self.on_format_changed)
@@ -491,6 +521,10 @@ class MainWindow(QMainWindow):
         # Load last URL
         if settings.last_url:
             self.url_input.setText(settings.last_url)
+        
+        # Load subtitle settings
+        download_subtitles = self.facade.get_setting('download_subtitles', False)
+        self.subtitle_checkbox.setChecked(download_subtitles)
     
     def save_settings(self):
         """Save current settings to configuration."""
@@ -498,7 +532,8 @@ class MainWindow(QMainWindow):
             download_path=self.dest_input.text(),
             format_type='mp3' if self.mp3_radio.isChecked() else 'mp4',
             quality=self.quality_combo.currentData(),
-            last_url=self.url_input.text()
+            last_url=self.url_input.text(),
+            download_subtitles=self.subtitle_checkbox.isChecked()
         )
     
     @Slot()
@@ -571,7 +606,11 @@ class MainWindow(QMainWindow):
         self.progress_widget.clear_status()
         
         # Start download through facade
-        self.facade.start_download(url, dest_path, format_type, quality)
+        self.facade.start_download(
+            url, dest_path, format_type, quality,
+            download_subtitles=self.subtitle_checkbox.isChecked(),
+            subtitle_languages='en'
+        )
     
     @Slot()
     def cancel_download(self):
@@ -670,7 +709,11 @@ class MainWindow(QMainWindow):
             return
         
         # Add to queue through facade
-        item = self.facade.add_to_queue(url, dest_path, format_type, quality)
+        item = self.facade.add_to_queue(
+            url, dest_path, format_type, quality,
+            download_subtitles=self.subtitle_checkbox.isChecked(),
+            subtitle_languages='en'
+        )
         
         if item is None:
             QMessageBox.information(

@@ -18,7 +18,9 @@ class ConfigManager:
         'download_path': str(Path.home() / 'Downloads' / 'YoutubeDownloader'),
         'format_type': 'mp4',
         'quality': 'hd',
-        'last_url': ''
+        'last_url': '',
+        'download_subtitles': False,
+        'subtitle_languages': 'en'
     }
     
     def __init__(self, config_path: Optional[str] = None):

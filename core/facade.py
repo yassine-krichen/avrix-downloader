@@ -43,7 +43,9 @@ class DownloaderFacade:
             download_path=str(Path.home() / 'Downloads' / 'YoutubeDownloader'),
             format_type='mp4',
             quality='1080p',
-            last_url=''
+            last_url='',
+            download_subtitles=False,
+            subtitle_languages='en'
         )
         settings_repo = JsonSettingsRepository(self.config_manager)
         self.settings_service = SettingsService(settings_repo, default_settings)
@@ -138,7 +140,9 @@ class DownloaderFacade:
         url: str,
         destination_path: str,
         format_type: str,
-        quality: str
+        quality: str,
+        download_subtitles: bool = False,
+        subtitle_languages: str = 'en'
     ):
         """
         Start a download operation (direct download, not queued).
@@ -148,12 +152,16 @@ class DownloaderFacade:
             destination_path: Download destination
             format_type: Format type ('mp3' or 'mp4')
             quality: Quality setting
+            download_subtitles: Whether to download subtitles
+            subtitle_languages: Comma-separated language codes
         """
         self.download_manager.start_download(
             url,
             destination_path,
             format_type,
-            quality
+            quality,
+            download_subtitles,
+            subtitle_languages
         )
     
     def cancel_download(self):
@@ -171,7 +179,9 @@ class DownloaderFacade:
         destination_path: str,
         format_type: str,
         quality: str,
-        title: Optional[str] = None
+        title: Optional[str] = None,
+        download_subtitles: bool = False,
+        subtitle_languages: str = 'en'
     ) -> Optional[QueueItem]:
         """
         Add download to queue.
@@ -182,6 +192,8 @@ class DownloaderFacade:
             format_type: Format type ('mp3' or 'mp4')
             quality: Quality setting
             title: Optional video title
+            download_subtitles: Whether to download subtitles
+            subtitle_languages: Comma-separated language codes
             
         Returns:
             Created queue item or None if duplicate
@@ -193,7 +205,9 @@ class DownloaderFacade:
             format_type=format_type,
             quality=quality,
             title=title,
-            url_type=url_type
+            url_type=url_type,
+            download_subtitles=download_subtitles,
+            subtitle_languages=subtitle_languages
         )
     
     def remove_from_queue(self, item_id: str):
