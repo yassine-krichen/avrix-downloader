@@ -73,7 +73,7 @@ class MainWindow(QMainWindow):
         """Set up the user interface."""
         self.setWindowTitle("YouTube Downloader Pro")
         self.setMinimumWidth(700)
-        self.setMinimumHeight(800)
+        self.setMinimumHeight(850)
         
         # Enable drag and drop
         self.setAcceptDrops(True)
@@ -302,17 +302,18 @@ class MainWindow(QMainWindow):
         
         format_layout.addLayout(config_row)
         
-        # Subtitle option
-        subtitle_layout = QHBoxLayout()
-        subtitle_layout.setContentsMargins(0, 8, 0, 0)
+        # Download options (Subtitles and Thumbnails on same row)
+        options_layout = QHBoxLayout()
+        options_layout.setContentsMargins(0, 8, 0, 0)
         
+        # Subtitle option
         self.subtitle_checkbox = QCheckBox("Download Subtitles")
         self.subtitle_checkbox.setToolTip(
             "Download available subtitles for the video.\n"
             "Video (MP4): Embedded in video file\n"
             "Audio (MP3): Saved as separate .srt file"
         )
-        subtitle_layout.addWidget(self.subtitle_checkbox)
+        options_layout.addWidget(self.subtitle_checkbox)
         
         # Info button for subtitles
         subtitle_info = QToolButton()
@@ -326,21 +327,18 @@ class MainWindow(QMainWindow):
         )
         subtitle_info.setObjectName("infoButton")
         subtitle_info.setCursor(Qt.CursorShape.WhatsThisCursor)
-        subtitle_layout.addWidget(subtitle_info)
-        subtitle_layout.addStretch()
+        options_layout.addWidget(subtitle_info)
         
-        format_layout.addLayout(subtitle_layout)
+        # Add spacing between the two options
+        options_layout.addSpacing(30)
         
         # Thumbnail embedding option
-        thumbnail_layout = QHBoxLayout()
-        thumbnail_layout.setContentsMargins(0, 8, 0, 0)
-        
         self.thumbnail_checkbox = QCheckBox("Embed Thumbnail")
         self.thumbnail_checkbox.setToolTip(
             "Automatically embed video thumbnail in audio files.\n"
             "Note: Only works for audio (MP3) format."
         )
-        thumbnail_layout.addWidget(self.thumbnail_checkbox)
+        options_layout.addWidget(self.thumbnail_checkbox)
         
         # Info button for thumbnails
         thumbnail_info = QToolButton()
@@ -353,10 +351,11 @@ class MainWindow(QMainWindow):
         )
         thumbnail_info.setObjectName("infoButton")
         thumbnail_info.setCursor(Qt.CursorShape.WhatsThisCursor)
-        thumbnail_layout.addWidget(thumbnail_info)
-        thumbnail_layout.addStretch()
+        options_layout.addWidget(thumbnail_info)
         
-        format_layout.addLayout(thumbnail_layout)
+        options_layout.addStretch()
+        
+        format_layout.addLayout(options_layout)
         
         # Connect format change
         self.mp4_radio.toggled.connect(self.on_format_changed)
