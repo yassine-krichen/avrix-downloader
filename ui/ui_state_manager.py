@@ -61,7 +61,7 @@ class UIStateManager:
         self._set_enabled('mp3_radio', True)
         self._set_enabled('quality_combo', is_video)
         self._set_enabled('browse_button', True)
-        self._set_enabled('open_folder_button', False)
+        # open_folder_button is always enabled
     
     def _apply_downloading_state(self):
         """Apply downloading state to widgets."""
@@ -72,16 +72,17 @@ class UIStateManager:
         self._set_enabled('mp3_radio', False)
         self._set_enabled('quality_combo', False)
         self._set_enabled('browse_button', False)
-        self._set_enabled('open_folder_button', False)
+        # open_folder_button is always enabled
     
     def _apply_completed_state(self):
         """Apply completed state to widgets."""
         self._apply_ready_state()
-        self._set_enabled('open_folder_button', True)
+        # open_folder_button is always enabled
     
     def _apply_error_state(self):
         """Apply error state to widgets."""
         self._apply_ready_state()
+        # open_folder_button is always enabled
     
     def _set_enabled(self, widget_name: str, enabled: bool):
         """
