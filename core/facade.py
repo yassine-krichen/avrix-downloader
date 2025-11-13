@@ -48,7 +48,8 @@ class DownloaderFacade:
             download_subtitles=False,
             subtitle_languages='en',
             embed_thumbnail=False,
-            notifications_enabled=True
+            notifications_enabled=True,
+            max_concurrent_downloads=3
         )
         settings_repo = JsonSettingsRepository(self.config_manager)
         self.settings_service = SettingsService(settings_repo, default_settings)
@@ -251,6 +252,19 @@ class DownloaderFacade:
     def stop_queue_processing(self):
         """Stop processing the queue."""
         self.queue_manager.stop_processing()
+    
+    def set_max_concurrent_downloads(self, max_concurrent: int):
+        """
+        Set maximum concurrent downloads for queue processing.
+        
+        Args:
+            max_concurrent: Maximum number (1-10)
+        """
+        self.queue_manager.set_max_concurrent(max_concurrent)
+    
+    def get_max_concurrent_downloads(self) -> int:
+        """Get current max concurrent downloads setting."""
+        return self.queue_manager.get_max_concurrent()
     
     def get_queue_items(self) -> List[QueueItem]:
         """Get all items in queue."""

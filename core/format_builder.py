@@ -138,6 +138,8 @@ class FormatBuilder:
             'no_warnings': False,
             'restrictfilenames': False,
             'windowsfilenames': True,
+            'continuedl': False,  # Don't resume partial downloads to avoid "HTTP 416" errors
+            'noprogress': False,
         }
         
         # Add subtitle options if enabled

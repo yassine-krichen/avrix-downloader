@@ -375,3 +375,253 @@ class DownloadManager(QObject):
     def is_downloading(self) -> bool:
         """Check if a download is currently in progress."""
         return self.thread is not None and self.thread.isRunning()
+
+
+class ConcurrentDownloadManager(QObject):
+    """
+    Concurrent download manager that handles multiple simultaneous downloads.
+    Uses a pool of workers with configurable concurrency limit.
+    """
+    
+    # Signals with item_id for tracking individual downloads
+    progress_updated = Signal(str, dict)  # (item_id, progress_info)
+    download_started = Signal(str, dict)  # (item_id, info)
+    download_completed = Signal(str, dict)  # (item_id, result)
+    download_error = Signal(str, str)  # (item_id, error)
+    playlist_progress = Signal(str, int, int)  # (item_id, current, total)
+    
+    def __init__(self, max_concurrent: int = 3):
+        """
+        Initialize concurrent download manager.
+        
+        Args:
+            max_concurrent: Maximum number of simultaneous downloads (1-10)
+        """
+        super().__init__()
+        self._max_concurrent = max(1, min(10, max_concurrent))
+        self._active_downloads: Dict[str, tuple] = {}  # item_id -> (worker, thread)
+        self._finishing_downloads: set = set()  # item_ids that completed but thread still cleaning up
+        self.logger = get_logger()
+        
+    def set_max_concurrent(self, max_concurrent: int):
+        """
+        Update maximum concurrent downloads.
+        
+        Args:
+            max_concurrent: New maximum (1-10)
+        """
+        self._max_concurrent = max(1, min(10, max_concurrent))
+        self.logger.info(f"Max concurrent downloads set to: {self._max_concurrent}")
+    
+    def get_max_concurrent(self) -> int:
+        """Get current max concurrent downloads setting."""
+        return self._max_concurrent
+    
+    def can_start_download(self) -> bool:
+        """Check if a new download can be started."""
+        # Only count truly active downloads, not those that are finishing
+        active_count = len(self._active_downloads) - len(self._finishing_downloads)
+        return active_count < self._max_concurrent
+    
+    def get_active_count(self) -> int:
+        """Get number of active downloads (excluding those that are finishing)."""
+        # Only count downloads that are truly active, not those waiting for thread cleanup
+        return len(self._active_downloads) - len(self._finishing_downloads)
+    
+    def start_download(
+        self,
+        item_id: str,
+        url: str,
+        download_path: str,
+        format_type: str,
+        quality: str = "best",
+        download_subtitles: bool = False,
+        subtitle_languages: str = 'en',
+        embed_thumbnail: bool = False
+    ) -> bool:
+        """
+        Start a new download operation.
+        
+        Args:
+            item_id: Unique identifier for this download
+            url: YouTube video or playlist URL
+            download_path: Directory to save downloaded files
+            format_type: 'mp3' for audio, 'mp4' for video
+            quality: Quality setting for video
+            download_subtitles: Whether to download subtitles
+            subtitle_languages: Comma-separated language codes
+            embed_thumbnail: Whether to embed thumbnail in audio files
+            
+        Returns:
+            True if download started, False if at capacity
+        """
+        if not self.can_start_download():
+            self.logger.warning(f"Cannot start download {item_id}: at max capacity ({self._max_concurrent})")
+            return False
+        
+        # Check if this item_id is already active
+        if item_id in self._active_downloads:
+            # If it's in finishing state, it's safe to remove and restart
+            if item_id in self._finishing_downloads:
+                self.logger.info(f"Download {item_id} is finishing from previous run, cleaning up before restart")
+                # Remove from both tracking structures
+                self._finishing_downloads.remove(item_id)
+                if item_id in self._active_downloads:
+                    worker, thread = self._active_downloads[item_id]
+                    # Force quit the old thread
+                    if thread.isRunning():
+                        thread.quit()
+                        thread.wait(500)  # Wait up to 500ms
+                    del self._active_downloads[item_id]
+            else:
+                # Truly active download, can't restart
+                self.logger.warning(f"Download {item_id} already active")
+                return False
+        
+        # Create worker and thread
+        worker = DownloadWorker(
+            url, download_path, format_type, quality,
+            download_subtitles, subtitle_languages, embed_thumbnail
+        )
+        thread = QThread()
+        
+        # Move worker to thread
+        worker.moveToThread(thread)
+        
+        # Connect signals with item_id
+        worker.progress_updated.connect(
+            lambda progress: self.progress_updated.emit(item_id, progress)
+        )
+        worker.download_started.connect(
+            lambda info: self.download_started.emit(item_id, info)
+        )
+        worker.download_completed.connect(
+            lambda result: self._on_download_completed(item_id, result)
+        )
+        worker.download_error.connect(
+            lambda error: self._on_download_error(item_id, error)
+        )
+        worker.playlist_progress.connect(
+            lambda current, total: self.playlist_progress.emit(item_id, current, total)
+        )
+        
+        # Connect thread signals
+        thread.started.connect(worker.run)
+        
+        # Connect thread finished signal to cleanup AFTER thread actually exits
+        thread.finished.connect(lambda: self._on_thread_finished(item_id))
+        
+        # Store in active downloads
+        self._active_downloads[item_id] = (worker, thread)
+        
+        # Start the thread
+        thread.start()
+        self.logger.info(f"Started download {item_id} ({len(self._active_downloads)}/{self._max_concurrent} active)")
+        
+        return True
+    
+    def cancel_download(self, item_id: str):
+        """
+        Cancel a specific download.
+        
+        Args:
+            item_id: ID of download to cancel
+        """
+        if item_id in self._active_downloads:
+            worker, thread = self._active_downloads[item_id]
+            worker.cancel()
+            # Force thread to quit since we're cancelling
+            self._cleanup_download(item_id, force_quit=True)
+            self.logger.info(f"Cancelled download {item_id}")
+    
+    def cancel_all(self):
+        """Cancel all active downloads."""
+        item_ids = list(self._active_downloads.keys())
+        for item_id in item_ids:
+            self.cancel_download(item_id)
+        self.logger.info("Cancelled all downloads")
+    
+    def _cleanup_download(self, item_id: str, force_quit: bool = False):
+        """
+        Clean up a specific download's resources.
+        
+        Args:
+            item_id: ID of download to clean up
+            force_quit: If True, force the thread to quit (for cancellations)
+        """
+        if item_id in self._active_downloads:
+            worker, thread = self._active_downloads[item_id]
+            
+            # Remove from active downloads tracking
+            del self._active_downloads[item_id]
+            
+            # Disconnect signals to prevent duplicate events
+            try:
+                worker.download_completed.disconnect()
+                worker.download_error.disconnect()
+                worker.progress_updated.disconnect()
+                worker.download_started.disconnect()
+                worker.playlist_progress.disconnect()
+            except:
+                pass
+            
+            # Only quit the thread if we're forcing (e.g., cancellation)
+            if force_quit and thread.isRunning():
+                thread.quit()
+                # Give it a short time to finish, but don't block
+                thread.wait(1000)  # Wait max 1 second
+            
+            self.logger.debug(f"Cleaned up download {item_id} ({len(self._active_downloads)}/{self._max_concurrent} active)")
+    
+    def _on_thread_finished(self, item_id: str):
+        """
+        Called when a thread actually finishes execution.
+        This is where we do the real cleanup after the thread exits naturally.
+        
+        Args:
+            item_id: ID of the download whose thread finished
+        """
+        # Remove from finishing set
+        if item_id in self._finishing_downloads:
+            self._finishing_downloads.remove(item_id)
+        
+        # Now it's safe to remove from tracking since thread is truly done
+        if item_id in self._active_downloads:
+            del self._active_downloads[item_id]
+            active_count = len(self._active_downloads) - len(self._finishing_downloads)
+            self.logger.debug(f"Thread finished for {item_id} ({active_count}/{self._max_concurrent} active)")
+    
+    def _on_download_completed(self, item_id: str, result: dict):
+        """Handle download completion."""
+        # Mark as finishing so it doesn't count against active download limit
+        self._finishing_downloads.add(item_id)
+        
+        # Emit the signal - the thread is still running (post-processing)
+        # The actual cleanup will happen in _on_thread_finished when thread exits
+        self.download_completed.emit(item_id, result)
+    
+    def _on_download_error(self, item_id: str, error: str):
+        """Handle download error."""
+        # Mark as finishing
+        self._finishing_downloads.add(item_id)
+        
+        # Emit the signal - cleanup happens in _on_thread_finished
+        self.download_error.emit(item_id, error)
+    
+    def is_downloading(self, item_id: Optional[str] = None) -> bool:
+        """
+        Check if downloads are in progress.
+        
+        Args:
+            item_id: Optional specific download to check
+            
+        Returns:
+            True if download(s) in progress
+        """
+        if item_id:
+            return item_id in self._active_downloads
+        return len(self._active_downloads) > 0
+    
+    def cleanup(self):
+        """Clean up all active downloads."""
+        self.cancel_all()

@@ -22,7 +22,8 @@ class ConfigManager:
         'download_subtitles': False,
         'subtitle_languages': 'en',
         'embed_thumbnail': False,
-        'notifications_enabled': True
+        'notifications_enabled': True,
+        'max_concurrent_downloads': 3
     }
     
     def __init__(self, config_path: Optional[str] = None):

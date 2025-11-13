@@ -19,6 +19,7 @@ class AppSettings:
     subtitle_languages: str = 'en'
     embed_thumbnail: bool = False
     notifications_enabled: bool = True
+    max_concurrent_downloads: int = 3
 
 
 class ISettingsRepository(ABC):

@@ -9,7 +9,7 @@ from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QLineEdit, QPushButton, QComboBox,
     QFileDialog, QMessageBox, QGroupBox, QRadioButton,
-    QButtonGroup, QTabWidget, QMenu, QToolButton, QCheckBox
+    QButtonGroup, QTabWidget, QMenu, QToolButton, QCheckBox, QSpinBox
 )
 from PySide6.QtCore import Qt, Slot, QUrl, QSize
 from PySide6.QtGui import QIcon, QDragEnterEvent, QDropEvent, QAction, QFont
@@ -429,6 +429,25 @@ class MainWindow(QMainWindow):
         queue_tab = QWidget()
         queue_layout = QVBoxLayout(queue_tab)
         queue_layout.setContentsMargins(5, 5, 5, 5)
+        
+        # Concurrent downloads setting
+        concurrent_layout = QHBoxLayout()
+        concurrent_layout.setContentsMargins(0, 0, 0, 8)
+        
+        concurrent_label = QLabel("Concurrent Downloads:")
+        concurrent_label.setToolTip("Maximum number of simultaneous downloads (1-10)")
+        concurrent_layout.addWidget(concurrent_label)
+        
+        self.concurrent_spinbox = QSpinBox()
+        self.concurrent_spinbox.setRange(1, 10)
+        self.concurrent_spinbox.setValue(3)
+        self.concurrent_spinbox.setToolTip("1 = Sequential (one at a time)\n3 = Default (recommended)\n5+ = High performance (more CPU/network)")
+        self.concurrent_spinbox.valueChanged.connect(self.on_concurrent_changed)
+        concurrent_layout.addWidget(self.concurrent_spinbox)
+        
+        concurrent_layout.addStretch()
+        queue_layout.addLayout(concurrent_layout)
+        
         self.queue_widget = QueueWidget()
         queue_layout.addWidget(self.queue_widget)
         
@@ -562,6 +581,11 @@ class MainWindow(QMainWindow):
         # Load thumbnail settings
         embed_thumbnail = self.facade.get_setting('embed_thumbnail', False)
         self.thumbnail_checkbox.setChecked(embed_thumbnail)
+        
+        # Load concurrent downloads setting
+        max_concurrent = self.facade.get_setting('max_concurrent_downloads', 3)
+        self.concurrent_spinbox.setValue(max_concurrent)
+        self.facade.set_max_concurrent_downloads(max_concurrent)
     
     def save_settings(self):
         """Save current settings to configuration."""
@@ -571,8 +595,15 @@ class MainWindow(QMainWindow):
             quality=self.quality_combo.currentData(),
             last_url=self.url_input.text(),
             download_subtitles=self.subtitle_checkbox.isChecked(),
-            embed_thumbnail=self.thumbnail_checkbox.isChecked()
+            embed_thumbnail=self.thumbnail_checkbox.isChecked(),
+            max_concurrent_downloads=self.concurrent_spinbox.value()
         )
+    
+    @Slot()
+    def on_concurrent_changed(self, value: int):
+        """Handle concurrent downloads setting change."""
+        self.facade.set_max_concurrent_downloads(value)
+        self.save_settings()
     
     @Slot()
     def on_url_changed(self):
