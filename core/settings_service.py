@@ -18,6 +18,7 @@ class AppSettings:
     download_subtitles: bool = False
     subtitle_languages: str = 'en'
     embed_thumbnail: bool = False
+    notifications_enabled: bool = True
 
 
 class ISettingsRepository(ABC):

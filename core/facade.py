@@ -15,6 +15,7 @@ from core.download_queue import DownloadQueue
 from core.queue_storage import JsonQueueStorage
 from core.queue_manager import QueueManager
 from core.queue_item import QueueItem
+from core.notification_service import NotificationService
 
 
 class DownloaderFacade:
@@ -46,7 +47,8 @@ class DownloaderFacade:
             last_url='',
             download_subtitles=False,
             subtitle_languages='en',
-            embed_thumbnail=False
+            embed_thumbnail=False,
+            notifications_enabled=True
         )
         settings_repo = JsonSettingsRepository(self.config_manager)
         self.settings_service = SettingsService(settings_repo, default_settings)
@@ -67,7 +69,24 @@ class DownloaderFacade:
         self.queue = DownloadQueue(queue_storage)
         self.queue_manager = QueueManager(self.queue, self.download_manager)
         
+        # Initialize notification service (will be configured by UI)
+        self.notification_service = None
+        
         self.logger.info("Application initialized with queue management")
+    
+    # Notification operations
+    def set_notification_service(self, notification_service: NotificationService):
+        """
+        Set the notification service.
+        
+        Args:
+            notification_service: Notification service instance
+        """
+        self.notification_service = notification_service
+    
+    def get_notification_service(self) -> Optional[NotificationService]:
+        """Get the notification service."""
+        return self.notification_service
     
     # Settings operations
     def get_setting(self, key: str, default=None):

@@ -21,7 +21,8 @@ class ConfigManager:
         'last_url': '',
         'download_subtitles': False,
         'subtitle_languages': 'en',
-        'embed_thumbnail': False
+        'embed_thumbnail': False,
+        'notifications_enabled': True
     }
     
     def __init__(self, config_path: Optional[str] = None):

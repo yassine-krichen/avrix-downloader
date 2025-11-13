@@ -16,6 +16,7 @@ from PySide6.QtGui import QIcon, QDragEnterEvent, QDropEvent, QAction, QFont
 
 from core.facade import DownloaderFacade
 from core.queue_item import QueueItem
+from core.notification_service import NotificationService
 from ui.progress_widget import ProgressWidget
 from ui.queue_widget import QueueWidget
 from ui.ui_state_manager import UIStateManager, UIState
@@ -43,6 +44,11 @@ class MainWindow(QMainWindow):
         # Apply theme
         saved_theme = self.theme_manager.load_theme()
         self.theme_manager.apply_theme(saved_theme)
+        
+        # Initialize notification service
+        app_icon = self.windowIcon() if self.windowIcon() else None
+        self.notification_service = NotificationService(app_icon)
+        self.facade.set_notification_service(self.notification_service)
         
         # Initialize UI state manager
         self.ui_state = UIStateManager({
@@ -698,7 +704,12 @@ class MainWindow(QMainWindow):
         
         self.progress_widget.set_status(message, is_error=False)
         
-        QMessageBox.information(self, "Download Complete", message)
+        # Show native notification instead of QMessageBox
+        if self.notification_service and self.notification_service.is_enabled():
+            self.notification_service.show_success(
+                "Download Complete",
+                message
+            )
     
     @Slot(str)
     def on_download_error(self, error: str):
@@ -858,6 +869,14 @@ class MainWindow(QMainWindow):
     def on_queue_item_completed(self, item: QueueItem):
         """Handle queue item completion."""
         self.queue_widget.update_item(item)
+        
+        # Show native notification for each completed queue item
+        if self.notification_service and self.notification_service.is_enabled():
+            title = item.title or "Video"
+            self.notification_service.show_success(
+                "Download Complete",
+                f"{title} downloaded successfully!"
+            )
     
     @Slot(QueueItem, str)
     def on_queue_item_failed(self, item: QueueItem, error: str):
@@ -871,20 +890,19 @@ class MainWindow(QMainWindow):
         self.stop_queue_button.setEnabled(False)
         
         stats = self.facade.get_queue_stats()
-        if stats['failed'] > 0:
-            QMessageBox.warning(
-                self,
-                "Queue Completed",
-                f"Queue processing finished.\n\n"
-                f"Completed: {stats['completed']}\n"
-                f"Failed: {stats['failed']}"
-            )
-        else:
-            QMessageBox.information(
-                self,
-                "Queue Completed",
-                f"All {stats['completed']} items downloaded successfully!"
-            )
+        
+        # Show native notification instead of QMessageBox
+        if self.notification_service and self.notification_service.is_enabled():
+            if stats['failed'] > 0:
+                self.notification_service.show_warning(
+                    "Queue Completed",
+                    f"Completed: {stats['completed']} | Failed: {stats['failed']}"
+                )
+            else:
+                self.notification_service.show_success(
+                    "Queue Completed",
+                    f"All {stats['completed']} items downloaded successfully!"
+                )
     
     def closeEvent(self, event):
         """Handle window close event."""
@@ -901,6 +919,10 @@ class MainWindow(QMainWindow):
                 return
             
             self.facade.cancel_download()
+        
+        # Clean up notification service
+        if self.notification_service:
+            self.notification_service.cleanup()
         
         event.accept()
     

@@ -9,6 +9,7 @@
       "quality": "best",
       "download_subtitles": true,
       "subtitle_languages": "en",
+      "embed_thumbnail": false,
       "title": {
         "thumbnail": "https://i.ytimg.com/vi_webp/4bQ2qhfJUjA/maxresdefault.webp",
         "title": "This neural interface writes code from my brain waves…"
@@ -20,10 +21,10 @@
       "progress": 100.0,
       "error_message": null,
       "added_at": "2025-11-12T22:32:51.279046",
-      "started_at": "2025-11-12T22:32:55.368068",
-      "completed_at": "2025-11-12T22:33:08.391280",
+      "started_at": "2025-11-13T01:25:51.905572",
+      "completed_at": "2025-11-13T01:26:05.831958",
       "file_size": null,
-      "download_speed": 5861588.12165015
+      "download_speed": 5914923.216720845
     }
   ]
 }
