@@ -878,7 +878,7 @@ If you find Avrix useful, please consider:
 
 <br/>
 
-**Made with ❤️ by developers, for everyone**
+**Made with ❤️ by yassine krichen, for everyone**
 
 <br/>
 
