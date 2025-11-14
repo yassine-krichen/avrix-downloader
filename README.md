@@ -118,16 +118,19 @@
 <div align="center">
 
 ### Dark Theme Interface
-<img src="assets/DarK Mode.png" alt="Avrix Dark Theme" width="400"/>
+<img src="assets/Dark Mode.png" alt="Avrix Dark Theme" width="400"/>
+
 *Professional dark mode with Avrix branding*
 
 ### Download Progress
 <img src="assets/Light Mode.png" alt="Download Progress" width="400"/>
+
 *Real-time progress tracking with speed and ETA indicators*
 
 
 ### Queue Management
 <img src="assets/Queue Management.png" alt="Queue Management" width="400"/>
+
 *Batch processing with intelligent queue system*
 
 </div>
