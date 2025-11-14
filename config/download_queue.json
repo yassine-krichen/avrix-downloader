@@ -1,4 +1,49 @@
 {
   "version": "1.0",
-  "items": []
+  "items": [
+    {
+      "id": "a70c53f3-0271-4e16-a320-0bd88b9caced",
+      "url": "https://youtu.be/NXWhNukmOes?si=6g4LA7KMWIpy4DPq",
+      "download_path": "C:/Users/user/Downloads/final TEST",
+      "format_type": "mp4",
+      "quality": "best",
+      "download_subtitles": true,
+      "subtitle_languages": "en",
+      "embed_thumbnail": false,
+      "title": null,
+      "thumbnail_url": null,
+      "duration": null,
+      "url_type": "video",
+      "status": "pending",
+      "progress": 0.0,
+      "error_message": null,
+      "added_at": "2025-11-14T21:07:58.162726",
+      "started_at": null,
+      "completed_at": null,
+      "file_size": null,
+      "download_speed": null
+    },
+    {
+      "id": "07baa9a8-c98c-450b-bf3a-28094bbc14ca",
+      "url": "https://youtu.be/NXWhNukmOes?si=6g4LA7KMWIpy4DPq",
+      "download_path": "C:/Users/user/Downloads/final TEST",
+      "format_type": "mp3",
+      "quality": "best",
+      "download_subtitles": false,
+      "subtitle_languages": "en",
+      "embed_thumbnail": true,
+      "title": null,
+      "thumbnail_url": null,
+      "duration": null,
+      "url_type": "video",
+      "status": "pending",
+      "progress": 0.0,
+      "error_message": null,
+      "added_at": "2025-11-14T21:08:13.833543",
+      "started_at": null,
+      "completed_at": null,
+      "file_size": null,
+      "download_speed": null
+    }
+  ]
 }
