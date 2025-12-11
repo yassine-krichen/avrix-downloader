@@ -1,7 +1,7 @@
 <div align="center">
 
 
-<img src="assets/Avrix_dark_banner.jpg" alt="Avrix Logo"/>
+<img src="assets/images/avrix_dark_banner.jpg" alt="Avrix Logo"/>
 
 ### *A Professional Desktop Application for YouTube Media Downloads*
 
@@ -118,18 +118,18 @@
 <div align="center">
 
 ### Dark Theme Interface
-<img src="assets/Dark Mode.png" alt="Avrix Dark Theme" width="400"/>
+<img src="assets/images/dark_mode.png" alt="Avrix Dark Theme" width="400"/>
 
 *Professional dark mode with Avrix branding*
 
 ### Download Progress
-<img src="assets/Light Mode.png" alt="Download Progress" width="400"/>
+<img src="assets/images/light_mode.png" alt="Download Progress" width="400"/>
 
 *Real-time progress tracking with speed and ETA indicators*
 
 
 ### Queue Management
-<img src="assets/Queue Management.png" alt="Queue Management" width="400"/>
+<img src="assets/images/queue_management.png" alt="Queue Management" width="400"/>
 
 *Batch processing with intelligent queue system*
 
@@ -360,28 +360,28 @@ Avrix is built with clean architecture principles and SOLID design patterns:
 
 ```
 ┌─────────────────────────────────────────────────┐
-│              User Interface Layer                │
-│  ┌──────────────┐  ┌────────────────────────┐  │
-│  │  Main Window │  │  Progress/Queue Widgets │  │
-│  └──────────────┘  └────────────────────────┘  │
+│              User Interface Layer               │
+│  ┌──────────────┐  ┌────────────────────────┐   │
+│  │  Main Window │  │  Progress/Queue Widgets│   │
+│  └──────────────┘  └────────────────────────┘   │
 └────────────┬────────────────────────────────────┘
              │
 ┌────────────▼────────────────────────────────────┐
-│           Business Logic Layer                   │
-│  ┌────────────────┐  ┌──────────────────────┐  │
-│  │ Facade Pattern │  │  Download Manager     │  │
-│  │   (Simplified  │  │  Queue Manager        │  │
-│  │    Interface)  │  │  Concurrent Manager   │  │
-│  └────────────────┘  └──────────────────────┘  │
+│           Business Logic Layer                  │
+│  ┌────────────────┐  ┌──────────────────────┐   │
+│  │ Facade Pattern │  │  Download Manager    │   │
+│  │   (Simplified  │  │  Queue Manager       │   │
+│  │    Interface)  │  │  Concurrent Manager  │   │
+│  └────────────────┘  └──────────────────────┘   │
 └────────────┬────────────────────────────────────┘
              │
 ┌────────────▼────────────────────────────────────┐
-│            Core Services Layer                   │
-│  ┌────────────┐  ┌──────────────────────────┐  │
-│  │  yt-dlp    │  │  FFmpeg Integration       │  │
-│  │  Wrapper   │  │  Format Builder           │  │
-│  └────────────┘  └──────────────────────────┘  │
-└──────────────────────────────────────────────────┘
+│            Core Services Layer                  │
+│  ┌────────────┐  ┌──────────────────────────┐   │
+│  │  yt-dlp    │  │  FFmpeg Integration      │   │
+│  │  Wrapper   │  │  Format Builder          │   │
+│  └────────────┘  └──────────────────────────┘   │
+└─────────────────────────────────────────────────┘
 ```
 
 ### Key Design Patterns
@@ -494,23 +494,23 @@ Avrix supports downloading multiple items simultaneously for maximum efficiency:
 ### How It Works
 
 ```
-┌─────────────────────────────────────┐
-│      Concurrent Download System      │
-├─────────────────────────────────────┤
+┌────────────────────────────────────┐
+│      Concurrent Download System    │
+├────────────────────────────────────┤
 │  Thread Pool (Configurable 1-10)   │
-│                                      │
+│                                    │
 │  ┌──────────┐  ┌──────────┐        │
 │  │Download 1│  │Download 2│ ...    │
 │  │  Thread  │  │  Thread  │        │
 │  └──────────┘  └──────────┘        │
-│       ↓              ↓              │
+│       ↓              ↓             │
 │  ┌──────────────────────────────┐  │
 │  │   Queue Manager              │  │
 │  │   • Processes pending items  │  │
 │  │   • Manages thread lifecycle │  │
 │  │   • Handles completions      │  │
 │  └──────────────────────────────┘  │
-└─────────────────────────────────────┘
+└────────────────────────────────────┘
 ```
 
 ### Configuration
@@ -863,7 +863,7 @@ Special thanks to:
 ### Connect
 
 [![GitHub](https://img.shields.io/badge/GitHub-yassine--krichen-181717?style=for-the-badge&logo=github)](https://github.com/yassine-krichen)
-[![Email](https://img.shields.io/badge/Email-Contact-EA4335?style=for-the-badge&logo=gmail&logoColor=white)](mailto:your.email@example.com)
+[![Email](https://img.shields.io/badge/Email-Contact-EA4335?style=for-the-badge&logo=gmail&logoColor=white)](mailto:yassine.krichen@insat.ucar.tn)
 
 ---
 

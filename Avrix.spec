@@ -1,14 +1,26 @@
 # -*- mode: python ; coding: utf-8 -*-
 from PyInstaller.utils.hooks import collect_all
 
-datas = [('assets', 'assets'), ('config', 'config')]
+# Include full assets folder and config
+datas = [
+    ('assets', 'assets'),
+    ('config', 'config')
+]
+
 binaries = []
 hiddenimports = ['yt_dlp', 'PySide6', 'certifi']
-tmp_ret = collect_all('yt_dlp')
-datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
-tmp_ret = collect_all('certifi')
-datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 
+# Bundle yt_dlp fully
+tmp_ret = collect_all('yt_dlp')
+datas += tmp_ret[0]
+binaries += tmp_ret[1]
+hiddenimports += tmp_ret[2]
+
+# Bundle certifi fully
+tmp_ret = collect_all('certifi')
+datas += tmp_ret[0]
+binaries += tmp_ret[1]
+hiddenimports += tmp_ret[2]
 
 a = Analysis(
     ['main.py'],
@@ -23,6 +35,7 @@ a = Analysis(
     noarchive=False,
     optimize=0,
 )
+
 pyz = PYZ(a.pure)
 
 exe = EXE(
@@ -44,5 +57,7 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=['assets\\avrix_icon.ico'],
+
+    # Updated path to your renamed + relocated icon
+    icon=['assets\\images\\avrix_icon.ico'],
 )
