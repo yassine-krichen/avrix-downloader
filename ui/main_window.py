@@ -89,10 +89,10 @@ class MainWindow(QMainWindow):
         
         # Set window icon - try .ico first, then PNG fallbacks
         icon_paths = [
-            "assets/avrix_icon.ico",
-            "assets/avrix_logo_dark.png",
-            "assets/avrix_logo_light.png",
-            "assets/Avrix_dark.png"
+            "assets/images/avrix_icon.ico",
+            "assets/images/avrix_logo_dark.png",
+            "assets/images/avrix_logo_light.png",
+            "assets/images/avrix_dark.png"
         ]
         
         for icon_path in icon_paths:
@@ -930,9 +930,9 @@ class MainWindow(QMainWindow):
         current_theme = self.theme_manager.get_current_theme()
         
         if current_theme == ThemeMode.DARK:
-            logo_path = "assets/Avrix_dark.png"
+            logo_path = "assets/images/avrix_dark.png"
         else:  # Light or System (default to light)
-            logo_path = "assets/Avrix_light.png"
+            logo_path = "assets/images/avrix_light.png"
         
         if os.path.exists(logo_path):
             pixmap = QPixmap(logo_path)
