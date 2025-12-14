@@ -44,3 +44,14 @@ config/settings.json
 
 # Downloaded files
 downloads/
+
+# React / Next.js
+**/node_modules/
+**/.next/
+**/out/
+**/build/
+**/dist/
+**/*.tsbuildinfo
+**/.env.local
+**/.env.*.local
+**/.vercel/
