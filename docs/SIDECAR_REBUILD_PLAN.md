@@ -248,4 +248,5 @@ For each feature, we will follow this exact cycle:
 
 - Planning complete.
 - Feature 1 completed: foundation, contracts, health endpoints, and frontend API client skeleton.
-- Ready to begin Feature 2.
+- Feature 2 completed: settings API, persistence, validation, and frontend load/save wiring.
+- Ready to begin Feature 3.

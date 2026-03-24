@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -35,6 +35,8 @@ import {
   ListVideo,
   AlertCircle,
 } from "lucide-react"
+import { getSettings, updateSettings } from "@/lib/api/client"
+import type { ErrorResponse, Quality } from "@/lib/api/types"
 
 interface QueueItem {
   id: string
@@ -59,20 +61,31 @@ function detectYouTubeUrlType(url: string): { type: "video" | "playlist" | "shor
   return { type: "invalid", icon: AlertCircle }
 }
 
-const QUALITY_OPTIONS = ["Best Available", "2160p (4K)", "1440p", "1080p", "720p", "480p", "360p", "240p", "144p"]
+const QUALITY_OPTIONS: Array<{ value: Quality; label: string }> = [
+  { value: "best", label: "Best Available" },
+  { value: "2160p", label: "2160p (4K)" },
+  { value: "1440p", label: "1440p" },
+  { value: "1080p", label: "1080p" },
+  { value: "720p", label: "720p" },
+  { value: "480p", label: "480p" },
+  { value: "360p", label: "360p" },
+  { value: "240p", label: "240p" },
+  { value: "144p", label: "144p" },
+]
 
 export default function AvrixDownloader() {
   const [theme, setTheme] = useState<"light" | "dark">("light")
   const [showAbout, setShowAbout] = useState(false)
 
   const [sourceUrl, setSourceUrl] = useState("")
-  const [format, setFormat] = useState("audio")
-  const [quality, setQuality] = useState("Best Available")
+  const [format, setFormat] = useState<"audio" | "video">("video")
+  const [quality, setQuality] = useState<Quality>("best")
   const [downloadSubtitles, setDownloadSubtitles] = useState(false)
   const [embedThumbnail, setEmbedThumbnail] = useState(true)
   const [outputLocation, setOutputLocation] = useState("C:/Users/user/Downloads")
-  const [maxConcurrent, setMaxConcurrent] = useState("2")
+  const [maxConcurrent, setMaxConcurrent] = useState("3")
   const [activeTab, setActiveTab] = useState("current")
+  const [settingsStatus, setSettingsStatus] = useState<string>("")
 
   const [queueItems, setQueueItems] = useState<QueueItem[]>([
     {
@@ -94,6 +107,45 @@ export default function AvrixDownloader() {
   ])
 
   const urlDetection = detectYouTubeUrlType(sourceUrl)
+
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const settings = await getSettings()
+        setSourceUrl(settings.last_url ?? "")
+        setFormat(settings.format_type === "mp3" ? "audio" : "video")
+        setQuality(settings.quality)
+        setDownloadSubtitles(settings.download_subtitles)
+        setEmbedThumbnail(settings.embed_thumbnail)
+        setOutputLocation(settings.download_path)
+        setMaxConcurrent(String(settings.max_concurrent_downloads))
+      } catch {
+        setSettingsStatus("Could not load settings from backend")
+      }
+    }
+
+    loadSettings()
+  }, [])
+
+  const saveSettings = async () => {
+    setSettingsStatus("Saving settings...")
+
+    try {
+      await updateSettings({
+        last_url: sourceUrl,
+        format_type: format === "audio" ? "mp3" : "mp4",
+        quality,
+        download_subtitles: downloadSubtitles,
+        embed_thumbnail: embedThumbnail,
+        download_path: outputLocation,
+        max_concurrent_downloads: Number(maxConcurrent),
+      })
+      setSettingsStatus("Settings saved")
+    } catch (error) {
+      const message = (error as ErrorResponse)?.message ?? "Failed to save settings"
+      setSettingsStatus(message)
+    }
+  }
 
   const toggleTheme = () => {
     const newTheme = theme === "light" ? "dark" : "light"
@@ -252,12 +304,12 @@ export default function AvrixDownloader() {
                 </Label>
                 <Select value={quality} onValueChange={setQuality}>
                   <SelectTrigger id="quality" className="h-7 text-xs">
-                    <SelectValue />
+                    <SelectValue placeholder="Select quality" />
                   </SelectTrigger>
                   <SelectContent>
                     {QUALITY_OPTIONS.map((option) => (
-                      <SelectItem key={option} value={option}>
-                        {option}
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -470,6 +522,9 @@ export default function AvrixDownloader() {
         </div>
 
         <div className="flex gap-2 pt-3 border-t border-border">
+          <Button size="sm" variant="outline" className="h-8 px-3 text-xs bg-transparent hover:bg-secondary" onClick={saveSettings}>
+            Save Settings
+          </Button>
           <Button size="sm" className="h-8 px-3 text-xs font-medium">
             <Download className="mr-1 h-3.5 w-3.5" />
             Start Download
@@ -488,6 +543,8 @@ export default function AvrixDownloader() {
             Open Folder
           </Button>
         </div>
+
+        {settingsStatus ? <p className="pt-2 text-xs text-muted-foreground">{settingsStatus}</p> : null}
       </main>
 
       {/* About Dialog */}

@@ -25,3 +25,30 @@ export interface HealthResponse {
 export interface ApiResponse<T> {
   data: T
 }
+
+export type FormatType = "mp3" | "mp4"
+export type Quality = "best" | "2160p" | "1440p" | "1080p" | "720p" | "480p" | "360p" | "240p" | "144p"
+
+export interface AppSettings {
+  download_path: string
+  format_type: FormatType
+  quality: Quality
+  last_url: string
+  download_subtitles: boolean
+  subtitle_languages: string
+  embed_thumbnail: boolean
+  notifications_enabled: boolean
+  max_concurrent_downloads: number
+}
+
+export interface SettingsPatchRequest {
+  download_path?: string
+  format_type?: FormatType
+  quality?: Quality
+  last_url?: string
+  download_subtitles?: boolean
+  subtitle_languages?: string
+  embed_thumbnail?: boolean
+  notifications_enabled?: boolean
+  max_concurrent_downloads?: number
+}

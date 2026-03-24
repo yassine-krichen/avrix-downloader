@@ -74,6 +74,11 @@ Feature 1 is complete:
 - Health endpoints available
 - Standardized JSON error envelope (`code`, `message`, `details`, `trace_id`)
 
+Feature 2 is complete:
+- Settings service (`GET /api/v1/settings`, `PATCH /api/v1/settings`)
+- Settings persistence with validation
+- Frontend settings load/save integration
+
 ### Run The App (Current Setup)
 
 1. Install frontend dependencies:
@@ -139,6 +144,12 @@ Expected JSON shape:
 - Backend starts in background and readiness is checked before window load.
 - Download/actions are not wired yet (that comes in Feature 2+).
 - This phase validates architecture contract and runtime stability only.
+
+### What To Expect In Feature 2
+
+- On app startup, UI settings are loaded from backend.
+- A `Save Settings` button is available in the UI footer.
+- Saving updates backend persisted settings immediately.
 
 > Note: The rest of this README still contains legacy product documentation and will be progressively updated as migration features are completed.
 

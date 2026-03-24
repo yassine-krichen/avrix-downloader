@@ -1,4 +1,4 @@
-import type { ErrorResponse, HealthResponse } from "@/lib/api/types"
+import type { AppSettings, ErrorResponse, HealthResponse, SettingsPatchRequest } from "@/lib/api/types"
 
 const DEFAULT_BASE_URL = "http://127.0.0.1:8000"
 
@@ -24,17 +24,33 @@ async function parseError(response: Response): Promise<ErrorResponse> {
   }
 }
 
-export async function pingBackend(): Promise<HealthResponse> {
-  const response = await fetch(`${resolveBaseUrl()}/health/live`, {
-    method: "GET",
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(`${resolveBaseUrl()}${path}`, {
     headers: {
       "Content-Type": "application/json",
+      ...(init?.headers ?? {}),
     },
+    ...init,
   })
 
   if (!response.ok) {
     throw await parseError(response)
   }
 
-  return (await response.json()) as HealthResponse
+  return (await response.json()) as T
+}
+
+export async function pingBackend(): Promise<HealthResponse> {
+  return request<HealthResponse>("/health/live", { method: "GET" })
+}
+
+export async function getSettings(): Promise<AppSettings> {
+  return request<AppSettings>("/api/v1/settings", { method: "GET" })
+}
+
+export async function updateSettings(payload: SettingsPatchRequest): Promise<AppSettings> {
+  return request<AppSettings>("/api/v1/settings", {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  })
 }
