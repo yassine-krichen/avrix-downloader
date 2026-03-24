@@ -137,31 +137,59 @@ class DownloadEngineService:
         file_tag = f"{item.format_type}-{item.quality}-{item.id[:8]}"
         output_template = f"{item.download_path}/%(title)s [{file_tag}].%(ext)s"
 
-        ydl_opts = {
+        base_opts = {
             "outtmpl": output_template,
             "progress_hooks": [progress_hook],
-            "noplaylist": False,
+            "noplaylist": True,
             "quiet": True,
             "no_warnings": True,
             "retries": 10,
             "fragment_retries": 10,
             "extractor_retries": 3,
             "file_access_retries": 3,
+            "concurrent_fragment_downloads": 1,
+            "skip_unavailable_fragments": True,
+            "extractor_args": {
+                "youtube": {
+                    "player_client": ["android", "web"],
+                }
+            },
         }
 
+        attempt_opts: list[dict] = []
+
         if item.format_type == "mp3":
-            ydl_opts.update(
+            postprocessors = [{"key": "FFmpegExtractAudio", "preferredcodec": "mp3"}]
+            attempt_opts.append(
+                {
+                    "format": "bestaudio[ext=m4a]/bestaudio/best",
+                    "postprocessors": postprocessors,
+                }
+            )
+            attempt_opts.append(
                 {
                     "format": "bestaudio/best",
-                    "postprocessors": [{"key": "FFmpegExtractAudio", "preferredcodec": "mp3"}],
+                    "postprocessors": postprocessors,
                 }
             )
         else:
             if item.quality == "best":
-                ydl_opts["format"] = "bestvideo+bestaudio/best"
+                preferred_format = "bestvideo+bestaudio/best"
             else:
-                ydl_opts["format"] = f"bestvideo[height<={item.quality.rstrip('p')}]+bestaudio/best"
-            ydl_opts["merge_output_format"] = "mp4"
+                preferred_format = f"bestvideo[height<={item.quality.rstrip('p')}]+bestaudio/best"
+
+            attempt_opts.append(
+                {
+                    "format": preferred_format,
+                    "merge_output_format": "mp4",
+                }
+            )
+            attempt_opts.append(
+                {
+                    "format": "best[ext=mp4]/best",
+                    "merge_output_format": "mp4",
+                }
+            )
 
         if item.download_subtitles:
             ydl_opts["writesubtitles"] = True
@@ -171,12 +199,35 @@ class DownloadEngineService:
             ydl_opts["writethumbnail"] = True
 
         try:
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                info = ydl.extract_info(item.url, download=False)
-                title = info.get("title") if isinstance(info, dict) else None
-                if title:
-                    queue_service.update_item_fields(item_id, title=title)
-                ydl.download([item.url])
+            last_error: Exception | None = None
+            download_succeeded = False
+
+            for attempt in attempt_opts:
+                ydl_opts = {
+                    **base_opts,
+                    **attempt,
+                }
+
+                try:
+                    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                        info = ydl.extract_info(item.url, download=False)
+                        title = info.get("title") if isinstance(info, dict) else None
+                        if title:
+                            queue_service.update_item_fields(item_id, title=title)
+                        ydl.download([item.url])
+
+                    download_succeeded = True
+                    break
+                except DownloadCancelled:
+                    raise
+                except Exception as exc:
+                    last_error = exc
+                    continue
+
+            if not download_succeeded:
+                if last_error is not None:
+                    raise last_error
+                raise RuntimeError("Download failed for unknown reason")
 
             if self._stop_event.is_set():
                 queue_service.update_item_fields(item_id, status=QueueItemStatus.CANCELLED)
