@@ -156,6 +156,13 @@ class DownloadEngineService:
             },
         }
 
+        if item.download_subtitles:
+            base_opts["writesubtitles"] = True
+            base_opts["subtitleslangs"] = [lang.strip() for lang in item.subtitle_languages.split(",") if lang.strip()]
+
+        if item.embed_thumbnail:
+            base_opts["writethumbnail"] = True
+
         attempt_opts: list[dict] = []
 
         if item.format_type == "mp3":
@@ -190,13 +197,6 @@ class DownloadEngineService:
                     "merge_output_format": "mp4",
                 }
             )
-
-        if item.download_subtitles:
-            ydl_opts["writesubtitles"] = True
-            ydl_opts["subtitleslangs"] = [lang.strip() for lang in item.subtitle_languages.split(",") if lang.strip()]
-
-        if item.embed_thumbnail:
-            ydl_opts["writethumbnail"] = True
 
         try:
             last_error: Exception | None = None

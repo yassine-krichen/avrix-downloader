@@ -103,6 +103,13 @@ class CurrentDownloadService:
             },
         }
 
+        if payload.download_subtitles:
+            base_opts["writesubtitles"] = True
+            base_opts["subtitleslangs"] = [lang.strip() for lang in payload.subtitle_languages.split(",") if lang.strip()]
+
+        if payload.embed_thumbnail:
+            base_opts["writethumbnail"] = True
+
         attempt_opts: list[dict] = []
 
         if payload.format_type == "mp3":
@@ -137,13 +144,6 @@ class CurrentDownloadService:
                     "merge_output_format": "mp4",
                 }
             )
-
-        if payload.download_subtitles:
-            ydl_opts["writesubtitles"] = True
-            ydl_opts["subtitleslangs"] = [lang.strip() for lang in payload.subtitle_languages.split(",") if lang.strip()]
-
-        if payload.embed_thumbnail:
-            ydl_opts["writethumbnail"] = True
 
         try:
             last_error: Exception | None = None
