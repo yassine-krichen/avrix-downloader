@@ -20,6 +20,10 @@ wheels/
 .installed.cfg
 *.egg
 
+# Keep frontend source utilities trackable
+!avrix_desktop_frontend/lib/
+!avrix_desktop_frontend/lib/**
+
 # Virtual environments
 venv/
 ENV/

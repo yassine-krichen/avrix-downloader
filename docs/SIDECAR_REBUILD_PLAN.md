@@ -247,5 +247,5 @@ For each feature, we will follow this exact cycle:
 ## Status
 
 - Planning complete.
-- No Feature implementation started yet.
-- Ready to begin Feature 1 after your confirmation.
+- Feature 1 completed: foundation, contracts, health endpoints, and frontend API client skeleton.
+- Ready to begin Feature 2.

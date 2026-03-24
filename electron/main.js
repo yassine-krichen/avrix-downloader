@@ -7,6 +7,35 @@ let mainWindow;
 let pythonProcess;
 const API_PORT = 8000;
 
+function waitForBackendReady(timeoutMs = 10000) {
+  const start = Date.now();
+
+  return new Promise((resolve, reject) => {
+    const probe = () => {
+      const req = http.get(`http://127.0.0.1:${API_PORT}/health/ready`, (res) => {
+        if (res.statusCode === 200) {
+          resolve();
+          return;
+        }
+        retryOrFail();
+      });
+
+      req.on('error', retryOrFail);
+      req.end();
+    };
+
+    const retryOrFail = () => {
+      if (Date.now() - start >= timeoutMs) {
+        reject(new Error('Backend readiness timeout'));
+        return;
+      }
+      setTimeout(probe, 250);
+    };
+
+    probe();
+  });
+}
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1200,
@@ -34,17 +63,13 @@ function createWindow() {
 }
 
 function startPythonServer() {
-  const scriptPath = path.join(__dirname, '../server/api.py');
-  const projectRoot = path.join(__dirname, '..');
+  const backendRoot = path.join(__dirname, '../avrix_sidecar_backend');
   
-  // For dev: run python script directly
-  // For prod: run the executable
-  
-  pythonProcess = spawn('python', [scriptPath], {
-    cwd: projectRoot,
+  pythonProcess = spawn('python', ['-m', 'app.main'], {
+    cwd: backendRoot,
     env: {
       ...process.env,
-      PYTHONPATH: projectRoot,
+      PYTHONPATH: backendRoot,
     }
   });
 
@@ -59,8 +84,13 @@ function startPythonServer() {
 
 app.on('ready', () => {
   startPythonServer();
-  // Wait a bit for Python to start (better: poll the port)
-  setTimeout(createWindow, 2000);
+
+  waitForBackendReady()
+    .then(() => createWindow())
+    .catch((error) => {
+      console.error(`Backend startup error: ${error.message}`);
+      app.quit();
+    });
 });
 
 app.on('window-all-closed', function () {
