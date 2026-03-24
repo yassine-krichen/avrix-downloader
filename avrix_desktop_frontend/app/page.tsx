@@ -37,18 +37,28 @@ import {
 } from "lucide-react"
 import {
   addQueueItem,
+  cancelCurrentDownload,
   clearAllQueue,
   clearFinishedQueue,
+  getCurrentDownloadState,
   getQueueExecutionState,
   getQueueItems,
   getSettings,
   moveQueueItem,
   removeQueueItem,
+  startCurrentDownload,
   startQueueExecution,
   stopQueueExecution,
   updateSettings,
 } from "@/lib/api/client"
-import type { ErrorResponse, Quality, QueueExecutionState, QueueItem, ThemeMode } from "@/lib/api/types"
+import type {
+  CurrentDownloadState,
+  ErrorResponse,
+  Quality,
+  QueueExecutionState,
+  QueueItem,
+  ThemeMode,
+} from "@/lib/api/types"
 
 function detectYouTubeUrlType(url: string): { type: "video" | "playlist" | "short" | "invalid"; icon: typeof Play } {
   if (!url.trim()) return { type: "invalid", icon: AlertCircle }
@@ -97,6 +107,19 @@ export default function AvrixDownloader() {
     pending_count: 0,
     max_concurrent: 3,
   })
+  const [currentDownload, setCurrentDownload] = useState<CurrentDownloadState>({
+    running: false,
+    status: "idle",
+    url: "",
+    title: null,
+    thumbnail_url: null,
+    progress: 0,
+    downloaded_bytes: 0,
+    total_bytes: 0,
+    speed_bps: 0,
+    eta_seconds: 0,
+    error_message: null,
+  })
 
   const urlDetection = detectYouTubeUrlType(sourceUrl)
 
@@ -125,6 +148,15 @@ export default function AvrixDownloader() {
       setQueueExecution(state)
     } catch {
       setSettingsStatus("Could not load queue execution state")
+    }
+  }
+
+  const loadCurrentDownload = async () => {
+    try {
+      const state = await getCurrentDownloadState()
+      setCurrentDownload(state)
+    } catch {
+      setSettingsStatus("Could not load current download state")
     }
   }
 
@@ -158,23 +190,25 @@ export default function AvrixDownloader() {
 
     loadQueue()
     loadQueueExecution()
+    loadCurrentDownload()
     loadSettings()
   }, [])
 
   useEffect(() => {
-    if (!queueExecution.running) {
+    if (!queueExecution.running && !currentDownload.running) {
       return
     }
 
     const intervalId = window.setInterval(() => {
       loadQueue()
       loadQueueExecution()
+      loadCurrentDownload()
     }, 1000)
 
     return () => {
       window.clearInterval(intervalId)
     }
-  }, [queueExecution.running])
+  }, [queueExecution.running, currentDownload.running])
 
   const saveSettings = async () => {
     setSettingsStatus("Saving settings...")
@@ -336,12 +370,81 @@ export default function AvrixDownloader() {
   }
 
   const startDownloadNow = async () => {
-    const added = await addToQueue()
-    if (!added) {
+    if (!sourceUrl.trim()) {
+      setSettingsStatus("Please provide a source URL before starting download")
       return
     }
-    await startQueue()
+
+    try {
+      const state = await startCurrentDownload({
+        url: sourceUrl.trim(),
+        format_type: format === "audio" ? "mp3" : "mp4",
+        quality,
+        download_path: outputLocation,
+        download_subtitles: downloadSubtitles,
+        subtitle_languages: "en",
+        embed_thumbnail: embedThumbnail,
+      })
+
+      setCurrentDownload(state)
+      setActiveTab("current")
+      setSourceUrl("")
+      setSettingsStatus("Download started")
+    } catch (error) {
+      const message = (error as ErrorResponse)?.message ?? "Failed to start download"
+      setSettingsStatus(message)
+    }
   }
+
+  const cancelDownloadNow = async () => {
+    try {
+      const state = await cancelCurrentDownload()
+      setCurrentDownload(state)
+      setSettingsStatus("Download cancelled")
+    } catch (error) {
+      const message = (error as ErrorResponse)?.message ?? "Failed to cancel download"
+      setSettingsStatus(message)
+    }
+  }
+
+  const formatBytes = (bytes: number): string => {
+    if (!bytes || bytes <= 0) {
+      return "--"
+    }
+
+    const units = ["B", "KB", "MB", "GB", "TB"]
+    let value = bytes
+    let unitIndex = 0
+    while (value >= 1024 && unitIndex < units.length - 1) {
+      value /= 1024
+      unitIndex += 1
+    }
+    return `${value.toFixed(unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`
+  }
+
+  const formatEta = (seconds: number): string => {
+    if (!seconds || seconds <= 0) {
+      return "--"
+    }
+    const mins = Math.floor(seconds / 60)
+    const secs = seconds % 60
+    if (mins <= 0) {
+      return `${secs}s`
+    }
+    return `${mins}m ${secs}s`
+  }
+
+  const currentTitle = currentDownload.title || (currentDownload.running ? currentDownload.url : "Ready to Download")
+  const currentSubtitle =
+    currentDownload.status === "failed"
+      ? currentDownload.error_message || "Download failed"
+      : currentDownload.status === "completed"
+        ? "Download completed"
+        : currentDownload.status === "cancelled"
+          ? "Download cancelled"
+          : currentDownload.running
+            ? "Downloading..."
+            : "No video selected"
 
   const getStatusDisplay = (status: string) => {
     const statusMap: Record<string, { label: string; color: string }> = {
@@ -541,27 +644,40 @@ export default function AvrixDownloader() {
                   <div className="flex gap-2.5">
                     {/* Thumbnail - 30% width */}
                     <div className="w-[30%] aspect-video rounded bg-muted flex items-center justify-center flex-shrink-0">
-                      <Play className="h-6 w-6 text-muted-foreground/40" />
+                      {currentDownload.thumbnail_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={currentDownload.thumbnail_url}
+                          alt="Current download thumbnail"
+                          className="h-full w-full object-cover rounded"
+                        />
+                      ) : (
+                        <Play className="h-6 w-6 text-muted-foreground/40" />
+                      )}
                     </div>
 
                     {/* Info and Progress section */}
                     <div className="flex-1 flex flex-col justify-between py-1">
                       <div>
-                        <p className="text-xs font-semibold text-foreground">Ready to Download</p>
-                        <p className="text-[10px] text-muted-foreground mt-0.5">No video selected</p>
+                        <p className="text-xs font-semibold text-foreground truncate">{currentTitle}</p>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">{currentSubtitle}</p>
                       </div>
                       <div className="grid grid-cols-3 gap-1.5 mb-2.5">
                         <div>
                           <p className="text-[9px] text-muted-foreground uppercase tracking-wide">Speed</p>
-                          <p className="text-xs font-semibold mt-0.5">--</p>
+                          <p className="text-xs font-semibold mt-0.5">{formatBytes(currentDownload.speed_bps)}/s</p>
                         </div>
                         <div>
                           <p className="text-[9px] text-muted-foreground uppercase tracking-wide">Size</p>
-                          <p className="text-xs font-semibold mt-0.5">--</p>
+                          <p className="text-xs font-semibold mt-0.5">
+                            {currentDownload.total_bytes > 0
+                              ? `${formatBytes(currentDownload.downloaded_bytes)} / ${formatBytes(currentDownload.total_bytes)}`
+                              : formatBytes(currentDownload.downloaded_bytes)}
+                          </p>
                         </div>
                         <div>
                           <p className="text-[9px] text-muted-foreground uppercase tracking-wide">ETA</p>
-                          <p className="text-xs font-semibold mt-0.5">--</p>
+                          <p className="text-xs font-semibold mt-0.5">{formatEta(currentDownload.eta_seconds)}</p>
                         </div>
                       </div>
 
@@ -569,10 +685,13 @@ export default function AvrixDownloader() {
                       <div>
                         <div className="flex items-center justify-between mb-1">
                           <p className="text-xs font-medium">Progress</p>
-                          <p className="text-xs text-muted-foreground">0%</p>
+                          <p className="text-xs text-muted-foreground">{Math.round(currentDownload.progress)}%</p>
                         </div>
                         <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
-                          <div className="h-full rounded-full bg-primary" style={{ width: "0%" }} />
+                          <div
+                            className="h-full rounded-full bg-primary"
+                            style={{ width: `${Math.max(0, Math.min(100, currentDownload.progress))}%` }}
+                          />
                         </div>
                       </div>
                     </div>
@@ -721,7 +840,7 @@ export default function AvrixDownloader() {
           <Button size="sm" variant="outline" className="h-8 px-3 text-xs bg-transparent hover:bg-secondary" onClick={saveSettings}>
             Save Settings
           </Button>
-          <Button size="sm" className="h-8 px-3 text-xs font-medium" onClick={startDownloadNow}>
+          <Button size="sm" className="h-8 px-3 text-xs font-medium" onClick={startDownloadNow} disabled={currentDownload.running}>
             <Download className="mr-1 h-3.5 w-3.5" />
             Start Download
           </Button>
@@ -731,8 +850,8 @@ export default function AvrixDownloader() {
           <Button
             size="sm"
             className="h-8 px-3 text-xs bg-red-600 hover:bg-red-700 text-white font-medium border border-red-600 hover:border-red-700 ml-auto"
-            onClick={stopQueue}
-            disabled={!queueExecution.running}
+            onClick={cancelDownloadNow}
+            disabled={!currentDownload.running}
           >
             Cancel
           </Button>

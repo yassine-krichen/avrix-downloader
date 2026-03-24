@@ -1,5 +1,7 @@
 import type {
   AppSettings,
+  CurrentDownloadStartRequest,
+  CurrentDownloadState,
   ErrorResponse,
   HealthResponse,
   QueueCreateRequest,
@@ -119,4 +121,19 @@ export async function startQueueExecution(payload?: QueueStartRequest): Promise<
 
 export async function stopQueueExecution(): Promise<QueueExecutionState> {
   return request<QueueExecutionState>("/api/v1/queue/stop", { method: "POST" })
+}
+
+export async function getCurrentDownloadState(): Promise<CurrentDownloadState> {
+  return request<CurrentDownloadState>("/api/v1/download/current", { method: "GET" })
+}
+
+export async function startCurrentDownload(payload: CurrentDownloadStartRequest): Promise<CurrentDownloadState> {
+  return request<CurrentDownloadState>("/api/v1/download/start", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  })
+}
+
+export async function cancelCurrentDownload(): Promise<CurrentDownloadState> {
+  return request<CurrentDownloadState>("/api/v1/download/cancel", { method: "POST" })
 }

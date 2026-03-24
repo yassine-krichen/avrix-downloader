@@ -94,3 +94,29 @@ export interface QueueExecutionState {
   pending_count: number
   max_concurrent: number
 }
+
+export type CurrentDownloadStatus = "idle" | "starting" | "downloading" | "completed" | "failed" | "cancelled"
+
+export interface CurrentDownloadState {
+  running: boolean
+  status: CurrentDownloadStatus
+  url: string
+  title?: string | null
+  thumbnail_url?: string | null
+  progress: number
+  downloaded_bytes: number
+  total_bytes: number
+  speed_bps: number
+  eta_seconds: number
+  error_message?: string | null
+}
+
+export interface CurrentDownloadStartRequest {
+  url: string
+  format_type: FormatType
+  quality: Quality
+  download_path: string
+  download_subtitles?: boolean
+  subtitle_languages?: string
+  embed_thumbnail?: boolean
+}
