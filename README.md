@@ -713,6 +713,21 @@ dist/Avrix_Installer/
 - [ ] Download scheduler
 - [ ] Mobile companion app
 
+#### 🔥 Top Priority Features
+
+- [ ] **Storage-Aware Downloads** - Pre-download size prediction with color-coded indicators (🟢 Small, 🟡 Medium, 🔴 Large)
+- [ ] **Playlist Index Configuration** - Download specific ranges or selections from playlists (e.g., videos 1-10, 15, 20-25)
+- [ ] **Partial Video Downloads** - Download specific time ranges or segments from videos (e.g., 2:30-5:45)
+
+#### Other Planned Features
+
+- [ ] Browser extension integration
+- [ ] Advanced audio codec options (FLAC, WAV)
+- [ ] Batch URL import from file
+- [ ] Download scheduler
+- [ ] Mobile companion app
+
+
 ### 💡 Under Consideration
 
 - [ ] Multi-language support (i18n)

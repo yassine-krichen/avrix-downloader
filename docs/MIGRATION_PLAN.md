@@ -70,7 +70,7 @@ root/
 ├── server/
 │   ├── api.py
 │   └── ...
-├── avrix_react_ui/  (Next.js)
+├── avrix_desktop_frontend/  (Next.js)
 ├── core/            (Shared Python Logic)
 ├── dist/            (Build artifacts)
 └── ...

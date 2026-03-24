@@ -25,7 +25,7 @@ function createWindow() {
     mainWindow.loadURL('http://localhost:3000');
     mainWindow.webContents.openDevTools();
   } else {
-    mainWindow.loadFile(path.join(__dirname, '../avrix_react_ui/out/index.html'));
+    mainWindow.loadFile(path.join(__dirname, '../avrix_desktop_frontend/out/index.html'));
   }
 
   mainWindow.on('closed', function () {
