@@ -4,6 +4,7 @@
   "description": "YouTube Downloader",
   "main": "main.js",
   "scripts": {
+    "prestart": "npm --prefix ../avrix_desktop_frontend run build",
     "start": "electron .",
     "pack": "electron-builder --dir",
     "dist": "electron-builder"
