@@ -30,11 +30,16 @@ class QueueService:
             items = self._load()
             return len([item for item in items if item.status == QueueItemStatus.PENDING])
 
-    def find_next_pending(self, excluded_ids: set[str]) -> QueueItem | None:
+    def find_next_pending(self, excluded_ids: set[str], excluded_urls: set[str] | None = None) -> QueueItem | None:
         with self._lock:
             items = self._load()
+            blocked_urls = excluded_urls or set()
             for item in items:
-                if item.status == QueueItemStatus.PENDING and item.id not in excluded_ids:
+                if (
+                    item.status == QueueItemStatus.PENDING
+                    and item.id not in excluded_ids
+                    and item.url not in blocked_urls
+                ):
                     return item
             return None
 

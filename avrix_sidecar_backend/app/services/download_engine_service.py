@@ -21,6 +21,7 @@ class DownloadEngineService:
         self._dispatcher_thread: threading.Thread | None = None
         self._executor: ThreadPoolExecutor | None = None
         self._active_futures: dict[str, Future] = {}
+        self._active_item_urls: dict[str, str] = {}
 
     def get_state(self) -> QueueExecutionState:
         with self._lock:
@@ -70,9 +71,10 @@ class DownloadEngineService:
                         break
                     max_concurrent = settings_service.get_settings().max_concurrent_downloads
                     active_ids = set(self._active_futures.keys())
+                    active_urls = set(self._active_item_urls.values())
 
                 while not self._stop_event.is_set() and len(active_ids) < max_concurrent:
-                    next_item = queue_service.find_next_pending(excluded_ids=active_ids)
+                    next_item = queue_service.find_next_pending(excluded_ids=active_ids, excluded_urls=active_urls)
                     if next_item is None:
                         break
 
@@ -87,7 +89,9 @@ class DownloadEngineService:
                             break
                         future = self._executor.submit(self._run_download, next_item.id)
                         self._active_futures[next_item.id] = future
+                        self._active_item_urls[next_item.id] = next_item.url
                         active_ids.add(next_item.id)
+                        active_urls.add(next_item.url)
 
                 if not self._get_active_ids() and queue_service.count_pending() == 0:
                     break
@@ -99,6 +103,7 @@ class DownloadEngineService:
                     self._executor.shutdown(wait=False, cancel_futures=False)
                     self._executor = None
                 self._active_futures = {}
+                self._active_item_urls = {}
                 self._running = False
                 self._stop_event.clear()
 
@@ -107,6 +112,7 @@ class DownloadEngineService:
             done_ids = [item_id for item_id, future in self._active_futures.items() if future.done()]
             for item_id in done_ids:
                 self._active_futures.pop(item_id, None)
+                self._active_item_urls.pop(item_id, None)
 
     def _get_active_ids(self) -> list[str]:
         with self._lock:
@@ -137,6 +143,10 @@ class DownloadEngineService:
             "noplaylist": False,
             "quiet": True,
             "no_warnings": True,
+            "retries": 10,
+            "fragment_retries": 10,
+            "extractor_retries": 3,
+            "file_access_retries": 3,
         }
 
         if item.format_type == "mp3":
