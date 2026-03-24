@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field, model_validator
 Quality = Literal["best", "2160p", "1440p", "1080p", "720p", "480p", "360p", "240p", "144p"]
 FormatType = Literal["mp3", "mp4"]
 ThemeMode = Literal["light", "dark"]
+DownloadPolicy = Literal["best_effort", "strict_quality"]
 
 
 class AppSettings(BaseModel):
@@ -20,6 +21,7 @@ class AppSettings(BaseModel):
     notifications_enabled: bool = True
     max_concurrent_downloads: int = Field(default=3, ge=1, le=10)
     theme: ThemeMode = "light"
+    download_policy: DownloadPolicy = "best_effort"
 
 
 class SettingsPatchRequest(BaseModel):
@@ -33,6 +35,7 @@ class SettingsPatchRequest(BaseModel):
     notifications_enabled: Optional[bool] = None
     max_concurrent_downloads: Optional[int] = Field(default=None, ge=1, le=10)
     theme: Optional[ThemeMode] = None
+    download_policy: Optional[DownloadPolicy] = None
 
     @model_validator(mode="after")
     def validate_non_empty_patch(self):

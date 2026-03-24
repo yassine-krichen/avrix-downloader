@@ -138,12 +138,14 @@ class CurrentDownloadService:
                     "merge_output_format": "mp4",
                 }
             )
-            attempt_opts.append(
-                {
-                    "format": "best[ext=mp4]/best",
-                    "merge_output_format": "mp4",
-                }
-            )
+
+            if payload.download_policy == "best_effort":
+                attempt_opts.append(
+                    {
+                        "format": "best[ext=mp4]/best",
+                        "merge_output_format": "mp4",
+                    }
+                )
 
         try:
             last_error: Exception | None = None

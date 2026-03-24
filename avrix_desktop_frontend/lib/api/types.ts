@@ -29,6 +29,7 @@ export interface ApiResponse<T> {
 export type FormatType = "mp3" | "mp4"
 export type Quality = "best" | "2160p" | "1440p" | "1080p" | "720p" | "480p" | "360p" | "240p" | "144p"
 export type ThemeMode = "light" | "dark"
+export type DownloadPolicy = "best_effort" | "strict_quality"
 
 export interface AppSettings {
   download_path: string
@@ -41,6 +42,7 @@ export interface AppSettings {
   notifications_enabled: boolean
   max_concurrent_downloads: number
   theme: ThemeMode
+  download_policy: DownloadPolicy
 }
 
 export interface SettingsPatchRequest {
@@ -54,6 +56,7 @@ export interface SettingsPatchRequest {
   notifications_enabled?: boolean
   max_concurrent_downloads?: number
   theme?: ThemeMode
+  download_policy?: DownloadPolicy
 }
 
 export type QueueStatus = "pending" | "downloading" | "completed" | "failed" | "cancelled"
@@ -64,6 +67,7 @@ export interface QueueItem {
   status: QueueStatus
   format_type: FormatType
   quality: Quality
+  download_policy: DownloadPolicy
   progress: number
   download_path: string
   download_subtitles: boolean
@@ -77,6 +81,7 @@ export interface QueueCreateRequest {
   url: string
   format_type: FormatType
   quality: Quality
+  download_policy?: DownloadPolicy
   download_path: string
   download_subtitles?: boolean
   subtitle_languages?: string
@@ -115,6 +120,7 @@ export interface CurrentDownloadStartRequest {
   url: string
   format_type: FormatType
   quality: Quality
+  download_policy?: DownloadPolicy
   download_path: string
   download_subtitles?: boolean
   subtitle_languages?: string

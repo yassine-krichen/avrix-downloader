@@ -2,13 +2,14 @@ from typing import Literal
 
 from pydantic import BaseModel
 
-from app.contracts.settings import FormatType, Quality
+from app.contracts.settings import DownloadPolicy, FormatType, Quality
 
 
 class CurrentDownloadStartRequest(BaseModel):
     url: str
     format_type: FormatType
     quality: Quality
+    download_policy: DownloadPolicy = "best_effort"
     download_path: str
     download_subtitles: bool = False
     subtitle_languages: str = "en"

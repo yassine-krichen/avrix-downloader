@@ -53,6 +53,7 @@ import {
 } from "@/lib/api/client"
 import type {
   CurrentDownloadState,
+  DownloadPolicy,
   ErrorResponse,
   Quality,
   QueueExecutionState,
@@ -93,6 +94,7 @@ export default function AvrixDownloader() {
   const [sourceUrl, setSourceUrl] = useState("")
   const [format, setFormat] = useState<"audio" | "video">("video")
   const [quality, setQuality] = useState<Quality>("best")
+  const [downloadPolicy, setDownloadPolicy] = useState<DownloadPolicy>("best_effort")
   const [downloadSubtitles, setDownloadSubtitles] = useState(false)
   const [embedThumbnail, setEmbedThumbnail] = useState(true)
   const [outputLocation, setOutputLocation] = useState("C:/Users/user/Downloads")
@@ -178,6 +180,7 @@ export default function AvrixDownloader() {
         setSourceUrl(settings.last_url ?? "")
         setFormat(settings.format_type === "mp3" ? "audio" : "video")
         setQuality(settings.quality)
+        setDownloadPolicy(settings.download_policy ?? "best_effort")
         setDownloadSubtitles(settings.download_subtitles)
         setEmbedThumbnail(settings.embed_thumbnail)
         setOutputLocation(settings.download_path)
@@ -218,6 +221,7 @@ export default function AvrixDownloader() {
         last_url: sourceUrl,
         format_type: format === "audio" ? "mp3" : "mp4",
         quality,
+        download_policy: downloadPolicy,
         download_subtitles: downloadSubtitles,
         embed_thumbnail: embedThumbnail,
         download_path: outputLocation,
@@ -329,6 +333,7 @@ export default function AvrixDownloader() {
         url: sourceUrl.trim(),
         format_type: format === "audio" ? "mp3" : "mp4",
         quality,
+        download_policy: downloadPolicy,
         download_path: outputLocation,
         download_subtitles: downloadSubtitles,
         subtitle_languages: "en",
@@ -380,6 +385,7 @@ export default function AvrixDownloader() {
         url: sourceUrl.trim(),
         format_type: format === "audio" ? "mp3" : "mp4",
         quality,
+        download_policy: downloadPolicy,
         download_path: outputLocation,
         download_subtitles: downloadSubtitles,
         subtitle_languages: "en",
@@ -545,7 +551,7 @@ export default function AvrixDownloader() {
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-4 gap-2">
               {/* Format */}
               <div className="rounded-lg border border-border bg-card p-2.5">
                 <Label className="text-xs font-medium flex items-center gap-1.5 mb-2">
@@ -622,6 +628,23 @@ export default function AvrixDownloader() {
                     </Label>
                   </div>
                 </div>
+              </div>
+
+              {/* Policy */}
+              <div className="rounded-lg border border-border bg-card p-2.5">
+                <Label htmlFor="policy" className="text-xs font-medium flex items-center gap-1.5 mb-2">
+                  <AlertCircle className="h-3.5 w-3.5 text-primary" />
+                  Policy
+                </Label>
+                <Select value={downloadPolicy} onValueChange={(value) => setDownloadPolicy(value as DownloadPolicy)}>
+                  <SelectTrigger id="policy" className="h-7 text-xs">
+                    <SelectValue placeholder="Select mode" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="best_effort">Best effort</SelectItem>
+                    <SelectItem value="strict_quality">Strict quality</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
           </div>

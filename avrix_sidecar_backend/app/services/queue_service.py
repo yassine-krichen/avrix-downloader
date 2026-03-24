@@ -94,6 +94,7 @@ class QueueService:
                 url=payload.url,
                 format_type=payload.format_type,
                 quality=payload.quality,
+                download_policy=payload.download_policy,
                 download_path=payload.download_path,
                 download_subtitles=payload.download_subtitles,
                 subtitle_languages=payload.subtitle_languages,

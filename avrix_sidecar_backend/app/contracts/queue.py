@@ -5,7 +5,7 @@ from uuid import uuid4
 
 from pydantic import BaseModel, Field
 
-from app.contracts.settings import FormatType, Quality
+from app.contracts.settings import DownloadPolicy, FormatType, Quality
 
 
 class QueueItemStatus(str, Enum):
@@ -22,6 +22,7 @@ class QueueItem(BaseModel):
     status: QueueItemStatus = QueueItemStatus.PENDING
     format_type: FormatType
     quality: Quality
+    download_policy: DownloadPolicy = "best_effort"
     progress: float = 0.0
 
     download_path: str
@@ -37,6 +38,7 @@ class QueueCreateRequest(BaseModel):
     url: str
     format_type: FormatType
     quality: Quality
+    download_policy: DownloadPolicy = "best_effort"
     download_path: str
     download_subtitles: bool = False
     subtitle_languages: str = "en"
