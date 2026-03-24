@@ -84,27 +84,59 @@ class CurrentDownloadService:
         file_tag = f"single-{payload.format_type}-{payload.quality}"
         output_template = f"{payload.download_path}/%(title)s [{file_tag}].%(ext)s"
 
-        ydl_opts: dict = {
+        base_opts: dict = {
             "outtmpl": output_template,
             "progress_hooks": [progress_hook],
             "noplaylist": True,
             "quiet": True,
             "no_warnings": True,
+            "retries": 10,
+            "fragment_retries": 10,
+            "extractor_retries": 3,
+            "file_access_retries": 3,
+            "concurrent_fragment_downloads": 1,
+            "skip_unavailable_fragments": True,
+            "extractor_args": {
+                "youtube": {
+                    "player_client": ["android", "web"],
+                }
+            },
         }
 
+        attempt_opts: list[dict] = []
+
         if payload.format_type == "mp3":
-            ydl_opts.update(
+            postprocessors = [{"key": "FFmpegExtractAudio", "preferredcodec": "mp3"}]
+            attempt_opts.append(
+                {
+                    "format": "bestaudio[ext=m4a]/bestaudio/best",
+                    "postprocessors": postprocessors,
+                }
+            )
+            attempt_opts.append(
                 {
                     "format": "bestaudio/best",
-                    "postprocessors": [{"key": "FFmpegExtractAudio", "preferredcodec": "mp3"}],
+                    "postprocessors": postprocessors,
                 }
             )
         else:
             if payload.quality == "best":
-                ydl_opts["format"] = "bestvideo+bestaudio/best"
+                preferred_format = "bestvideo+bestaudio/best"
             else:
-                ydl_opts["format"] = f"bestvideo[height<={payload.quality.rstrip('p')}]+bestaudio/best"
-            ydl_opts["merge_output_format"] = "mp4"
+                preferred_format = f"bestvideo[height<={payload.quality.rstrip('p')}]+bestaudio/best"
+
+            attempt_opts.append(
+                {
+                    "format": preferred_format,
+                    "merge_output_format": "mp4",
+                }
+            )
+            attempt_opts.append(
+                {
+                    "format": "best[ext=mp4]/best",
+                    "merge_output_format": "mp4",
+                }
+            )
 
         if payload.download_subtitles:
             ydl_opts["writesubtitles"] = True
@@ -114,12 +146,35 @@ class CurrentDownloadService:
             ydl_opts["writethumbnail"] = True
 
         try:
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                info = ydl.extract_info(payload.url, download=False)
-                title = info.get("title") if isinstance(info, dict) else None
-                thumbnail = info.get("thumbnail") if isinstance(info, dict) else None
-                self._update_state(title=title, thumbnail_url=thumbnail)
-                ydl.download([payload.url])
+            last_error: Exception | None = None
+            download_succeeded = False
+
+            for attempt in attempt_opts:
+                ydl_opts = {
+                    **base_opts,
+                    **attempt,
+                }
+
+                try:
+                    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                        info = ydl.extract_info(payload.url, download=False)
+                        title = info.get("title") if isinstance(info, dict) else None
+                        thumbnail = info.get("thumbnail") if isinstance(info, dict) else None
+                        self._update_state(title=title, thumbnail_url=thumbnail)
+                        ydl.download([payload.url])
+
+                    download_succeeded = True
+                    break
+                except DownloadCancelled:
+                    raise
+                except Exception as exc:
+                    last_error = exc
+                    continue
+
+            if not download_succeeded:
+                if last_error is not None:
+                    raise last_error
+                raise RuntimeError("Download failed for unknown reason")
 
             if self._stop_event.is_set():
                 self._update_state(running=False, status="cancelled", speed_bps=0.0, eta_seconds=0)

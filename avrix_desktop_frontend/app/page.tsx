@@ -740,6 +740,14 @@ export default function AvrixDownloader() {
                       </Button>
                     </div>
                   </div>
+                  <div className="px-2.5 py-1.5 border-b border-border bg-muted/30">
+                    <p className="text-[10px] text-muted-foreground">
+                      Queue note: items with the same source URL run sequentially to reduce provider throttling and 403 errors.
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">
+                      Quality note: if preferred streams are blocked by source restrictions, downloader may fall back to the best available format.
+                    </p>
+                  </div>
 
                   {/* Queue items */}
                   <div className="divide-y divide-border overflow-auto flex-1">
