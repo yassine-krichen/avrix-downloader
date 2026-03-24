@@ -52,3 +52,30 @@ export interface SettingsPatchRequest {
   notifications_enabled?: boolean
   max_concurrent_downloads?: number
 }
+
+export type QueueStatus = "pending" | "downloading" | "completed" | "failed" | "cancelled"
+
+export interface QueueItem {
+  id: string
+  url: string
+  status: QueueStatus
+  format_type: FormatType
+  quality: Quality
+  progress: number
+  download_path: string
+  download_subtitles: boolean
+  subtitle_languages: string
+  embed_thumbnail: boolean
+  title?: string | null
+  created_at: string
+}
+
+export interface QueueCreateRequest {
+  url: string
+  format_type: FormatType
+  quality: Quality
+  download_path: string
+  download_subtitles?: boolean
+  subtitle_languages?: string
+  embed_thumbnail?: boolean
+}

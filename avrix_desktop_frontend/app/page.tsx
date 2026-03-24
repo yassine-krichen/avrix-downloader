@@ -35,17 +35,17 @@ import {
   ListVideo,
   AlertCircle,
 } from "lucide-react"
-import { getSettings, updateSettings } from "@/lib/api/client"
-import type { ErrorResponse, Quality } from "@/lib/api/types"
-
-interface QueueItem {
-  id: string
-  url: string
-  status: "pending" | "downloading" | "completed" | "error"
-  format: string
-  quality: string
-  progress: number
-}
+import {
+  addQueueItem,
+  clearAllQueue,
+  clearFinishedQueue,
+  getQueueItems,
+  getSettings,
+  moveQueueItem,
+  removeQueueItem,
+  updateSettings,
+} from "@/lib/api/client"
+import type { ErrorResponse, Quality, QueueItem } from "@/lib/api/types"
 
 function detectYouTubeUrlType(url: string): { type: "video" | "playlist" | "short" | "invalid"; icon: typeof Play } {
   if (!url.trim()) return { type: "invalid", icon: AlertCircle }
@@ -87,26 +87,18 @@ export default function AvrixDownloader() {
   const [activeTab, setActiveTab] = useState("current")
   const [settingsStatus, setSettingsStatus] = useState<string>("")
 
-  const [queueItems, setQueueItems] = useState<QueueItem[]>([
-    {
-      id: "1",
-      url: "https://youtu.be/example1",
-      status: "pending",
-      format: "MP4",
-      quality: "best",
-      progress: 0,
-    },
-    {
-      id: "2",
-      url: "https://youtu.be/example2",
-      status: "downloading",
-      format: "MP3",
-      quality: "best",
-      progress: 45,
-    },
-  ])
+  const [queueItems, setQueueItems] = useState<QueueItem[]>([])
 
   const urlDetection = detectYouTubeUrlType(sourceUrl)
+
+  const loadQueue = async () => {
+    try {
+      const queue = await getQueueItems()
+      setQueueItems(queue)
+    } catch {
+      setSettingsStatus("Could not load queue from backend")
+    }
+  }
 
   useEffect(() => {
     const loadSettings = async () => {
@@ -124,6 +116,7 @@ export default function AvrixDownloader() {
       }
     }
 
+    loadQueue()
     loadSettings()
   }, [])
 
@@ -192,27 +185,68 @@ export default function AvrixDownloader() {
     document.documentElement.classList.toggle("dark", newTheme === "dark")
   }
 
-  const moveQueueItem = (id: string, direction: "up" | "down") => {
-    const index = queueItems.findIndex((item) => item.id === id)
-    if ((direction === "up" && index === 0) || (direction === "down" && index === queueItems.length - 1)) return
-
-    const newItems = [...queueItems]
-    const newIndex = direction === "up" ? index - 1 : index + 1
-    newItems[index] = newItems[newIndex]
-    newItems[newIndex] = queueItems[index]
-    setQueueItems(newItems)
+  const moveQueue = async (id: string, direction: "up" | "down") => {
+    try {
+      const updated = await moveQueueItem(id, direction)
+      setQueueItems(updated)
+    } catch (error) {
+      const message = (error as ErrorResponse)?.message ?? "Failed to move queue item"
+      setSettingsStatus(message)
+    }
   }
 
-  const removeQueueItem = (id: string) => {
-    setQueueItems(queueItems.filter((item) => item.id !== id))
+  const removeQueue = async (id: string) => {
+    try {
+      await removeQueueItem(id)
+      await loadQueue()
+    } catch (error) {
+      const message = (error as ErrorResponse)?.message ?? "Failed to remove queue item"
+      setSettingsStatus(message)
+    }
   }
 
-  const clearFinished = () => {
-    setQueueItems(queueItems.filter((item) => item.status !== "completed"))
+  const clearFinished = async () => {
+    try {
+      const updated = await clearFinishedQueue()
+      setQueueItems(updated)
+    } catch (error) {
+      const message = (error as ErrorResponse)?.message ?? "Failed to clear finished queue"
+      setSettingsStatus(message)
+    }
   }
 
-  const clearAll = () => {
-    setQueueItems([])
+  const clearAll = async () => {
+    try {
+      await clearAllQueue()
+      setQueueItems([])
+    } catch (error) {
+      const message = (error as ErrorResponse)?.message ?? "Failed to clear queue"
+      setSettingsStatus(message)
+    }
+  }
+
+  const addToQueue = async () => {
+    if (!sourceUrl.trim()) {
+      setSettingsStatus("Please provide a source URL before adding to queue")
+      return
+    }
+
+    try {
+      await addQueueItem({
+        url: sourceUrl.trim(),
+        format_type: format === "audio" ? "mp3" : "mp4",
+        quality,
+        download_path: outputLocation,
+        download_subtitles: downloadSubtitles,
+        subtitle_languages: "en",
+        embed_thumbnail: embedThumbnail,
+      })
+      await loadQueue()
+      setSettingsStatus("Added to queue")
+    } catch (error) {
+      const message = (error as ErrorResponse)?.message ?? "Failed to add queue item"
+      setSettingsStatus(message)
+    }
   }
 
   const getStatusDisplay = (status: string) => {
@@ -220,7 +254,8 @@ export default function AvrixDownloader() {
       pending: { label: "Pending", color: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200" },
       downloading: { label: "Downloading", color: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200" },
       completed: { label: "Completed", color: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200" },
-      error: { label: "Error", color: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200" },
+      failed: { label: "Failed", color: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200" },
+      cancelled: { label: "Cancelled", color: "bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-200" },
     }
     return statusMap[status] || statusMap.pending
   }
@@ -504,7 +539,7 @@ export default function AvrixDownloader() {
                               <div className="min-w-0 flex-1">
                                 <p className="truncate text-xs font-medium">{item.url}</p>
                                 <div className="mt-1 flex items-center gap-1.5 text-[10px] text-muted-foreground">
-                                  <span>{item.format}</span>
+                                  <span>{item.format_type.toUpperCase()}</span>
                                   <span>•</span>
                                   <span>{item.quality}</span>
                                   <span>•</span>
@@ -518,7 +553,7 @@ export default function AvrixDownloader() {
                                   variant="ghost"
                                   size="sm"
                                   className="h-6 w-6 p-0 hover:bg-muted"
-                                  onClick={() => moveQueueItem(item.id, "up")}
+                                  onClick={() => moveQueue(item.id, "up")}
                                 >
                                   <ChevronUp className="h-3.5 w-3.5" />
                                 </Button>
@@ -526,7 +561,7 @@ export default function AvrixDownloader() {
                                   variant="ghost"
                                   size="sm"
                                   className="h-6 w-6 p-0 hover:bg-muted"
-                                  onClick={() => moveQueueItem(item.id, "down")}
+                                  onClick={() => moveQueue(item.id, "down")}
                                 >
                                   <ChevronDown className="h-3.5 w-3.5" />
                                 </Button>
@@ -534,7 +569,7 @@ export default function AvrixDownloader() {
                                   variant="ghost"
                                   size="sm"
                                   className="h-6 w-6 p-0 hover:bg-destructive/10 hover:text-destructive"
-                                  onClick={() => removeQueueItem(item.id)}
+                                  onClick={() => removeQueue(item.id)}
                                 >
                                   <Trash2 className="h-3.5 w-3.5" />
                                 </Button>
@@ -573,7 +608,7 @@ export default function AvrixDownloader() {
             <Download className="mr-1 h-3.5 w-3.5" />
             Start Download
           </Button>
-          <Button size="sm" variant="outline" className="h-8 px-3 text-xs bg-transparent hover:bg-secondary">
+          <Button size="sm" variant="outline" className="h-8 px-3 text-xs bg-transparent hover:bg-secondary" onClick={addToQueue}>
             Add to Queue
           </Button>
           <Button

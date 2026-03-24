@@ -1,4 +1,11 @@
-import type { AppSettings, ErrorResponse, HealthResponse, SettingsPatchRequest } from "@/lib/api/types"
+import type {
+  AppSettings,
+  ErrorResponse,
+  HealthResponse,
+  QueueCreateRequest,
+  QueueItem,
+  SettingsPatchRequest,
+} from "@/lib/api/types"
 
 const DEFAULT_BASE_URL = "http://127.0.0.1:8000"
 
@@ -53,4 +60,34 @@ export async function updateSettings(payload: SettingsPatchRequest): Promise<App
     method: "PATCH",
     body: JSON.stringify(payload),
   })
+}
+
+export async function getQueueItems(): Promise<QueueItem[]> {
+  return request<QueueItem[]>("/api/v1/queue", { method: "GET" })
+}
+
+export async function addQueueItem(payload: QueueCreateRequest): Promise<QueueItem> {
+  return request<QueueItem>("/api/v1/queue", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  })
+}
+
+export async function removeQueueItem(itemId: string): Promise<void> {
+  await request<void>(`/api/v1/queue/${itemId}`, { method: "DELETE" })
+}
+
+export async function moveQueueItem(itemId: string, direction: "up" | "down"): Promise<QueueItem[]> {
+  return request<QueueItem[]>(`/api/v1/queue/${itemId}/move`, {
+    method: "POST",
+    body: JSON.stringify({ direction }),
+  })
+}
+
+export async function clearFinishedQueue(): Promise<QueueItem[]> {
+  return request<QueueItem[]>("/api/v1/queue/finished", { method: "DELETE" })
+}
+
+export async function clearAllQueue(): Promise<void> {
+  await request<void>("/api/v1/queue", { method: "DELETE" })
 }
