@@ -128,8 +128,11 @@ class DownloadEngineService:
             elif status == "finished":
                 queue_service.update_item_fields(item_id, progress=100.0)
 
+        file_tag = f"{item.format_type}-{item.quality}-{item.id[:8]}"
+        output_template = f"{item.download_path}/%(title)s [{file_tag}].%(ext)s"
+
         ydl_opts = {
-            "outtmpl": f"{item.download_path}/%(title)s.%(ext)s",
+            "outtmpl": output_template,
             "progress_hooks": [progress_hook],
             "noplaylist": False,
             "quiet": True,
@@ -148,6 +151,7 @@ class DownloadEngineService:
                 ydl_opts["format"] = "bestvideo+bestaudio/best"
             else:
                 ydl_opts["format"] = f"bestvideo[height<={item.quality.rstrip('p')}]+bestaudio/best"
+            ydl_opts["merge_output_format"] = "mp4"
 
         if item.download_subtitles:
             ydl_opts["writesubtitles"] = True

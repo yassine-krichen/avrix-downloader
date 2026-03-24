@@ -81,8 +81,11 @@ class CurrentDownloadService:
             elif status == "finished":
                 self._update_state(progress=100.0)
 
+        file_tag = f"single-{payload.format_type}-{payload.quality}"
+        output_template = f"{payload.download_path}/%(title)s [{file_tag}].%(ext)s"
+
         ydl_opts: dict = {
-            "outtmpl": f"{payload.download_path}/%(title)s.%(ext)s",
+            "outtmpl": output_template,
             "progress_hooks": [progress_hook],
             "noplaylist": True,
             "quiet": True,
@@ -101,6 +104,7 @@ class CurrentDownloadService:
                 ydl_opts["format"] = "bestvideo+bestaudio/best"
             else:
                 ydl_opts["format"] = f"bestvideo[height<={payload.quality.rstrip('p')}]+bestaudio/best"
+            ydl_opts["merge_output_format"] = "mp4"
 
         if payload.download_subtitles:
             ydl_opts["writesubtitles"] = True
