@@ -17,6 +17,51 @@ class QueueService:
         with self._lock:
             return self._load()
 
+    def get_item(self, item_id: str) -> QueueItem:
+        with self._lock:
+            items = self._load()
+            for item in items:
+                if item.id == item_id:
+                    return item
+            self._raise_not_found(item_id)
+
+    def count_pending(self) -> int:
+        with self._lock:
+            items = self._load()
+            return len([item for item in items if item.status == QueueItemStatus.PENDING])
+
+    def find_next_pending(self, excluded_ids: set[str]) -> QueueItem | None:
+        with self._lock:
+            items = self._load()
+            for item in items:
+                if item.status == QueueItemStatus.PENDING and item.id not in excluded_ids:
+                    return item
+            return None
+
+    def update_item_fields(self, item_id: str, **changes) -> QueueItem:
+        with self._lock:
+            items = self._load()
+            index = self._find_index(items, item_id)
+            updated = items[index].model_copy(update=changes)
+            items[index] = updated
+            self._save(items)
+            return updated
+
+    def bulk_retry(self, retry_failed: bool, retry_cancelled: bool):
+        with self._lock:
+            items = self._load()
+            changed = False
+            for index, item in enumerate(items):
+                if retry_failed and item.status == QueueItemStatus.FAILED:
+                    items[index] = item.model_copy(update={"status": QueueItemStatus.PENDING, "progress": 0.0})
+                    changed = True
+                    continue
+                if retry_cancelled and item.status == QueueItemStatus.CANCELLED:
+                    items[index] = item.model_copy(update={"status": QueueItemStatus.PENDING, "progress": 0.0})
+                    changed = True
+            if changed:
+                self._save(items)
+
     def add_item(self, payload: QueueCreateRequest) -> QueueItem:
         with self._lock:
             items = self._load()

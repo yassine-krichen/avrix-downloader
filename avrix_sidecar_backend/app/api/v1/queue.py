@@ -1,6 +1,13 @@
 from fastapi import APIRouter
 
-from app.contracts.queue import QueueCreateRequest, QueueItem, QueueMoveRequest
+from app.contracts.queue import (
+    QueueCreateRequest,
+    QueueExecutionState,
+    QueueItem,
+    QueueMoveRequest,
+    QueueStartRequest,
+)
+from app.services.download_engine_service import download_engine_service
 from app.services.queue_service import queue_service
 
 router = APIRouter(prefix="/queue", tags=["queue"])
@@ -34,3 +41,21 @@ def clear_finished_queue() -> list[QueueItem]:
 @router.delete("", status_code=204)
 def clear_all_queue():
     queue_service.clear_all()
+
+
+@router.get("/execution", response_model=QueueExecutionState)
+def get_queue_execution_state() -> QueueExecutionState:
+    return download_engine_service.get_state()
+
+
+@router.post("/start", response_model=QueueExecutionState)
+def start_queue_execution(payload: QueueStartRequest) -> QueueExecutionState:
+    return download_engine_service.start(
+        retry_failed=payload.retry_failed,
+        retry_cancelled=payload.retry_cancelled,
+    )
+
+
+@router.post("/stop", response_model=QueueExecutionState)
+def stop_queue_execution() -> QueueExecutionState:
+    return download_engine_service.stop()

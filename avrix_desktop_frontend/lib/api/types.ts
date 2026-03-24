@@ -82,3 +82,15 @@ export interface QueueCreateRequest {
   subtitle_languages?: string
   embed_thumbnail?: boolean
 }
+
+export interface QueueStartRequest {
+  retry_failed?: boolean
+  retry_cancelled?: boolean
+}
+
+export interface QueueExecutionState {
+  running: boolean
+  active_item_ids: string[]
+  pending_count: number
+  max_concurrent: number
+}

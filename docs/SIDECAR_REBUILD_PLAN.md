@@ -249,4 +249,5 @@ For each feature, we will follow this exact cycle:
 - Planning complete.
 - Feature 1 completed: foundation, contracts, health endpoints, and frontend API client skeleton.
 - Feature 2 completed: settings API, persistence, validation, and frontend load/save wiring.
-- Ready to begin Feature 3.
+- Feature 3 completed: backend-first queue CRUD, ordering, and frontend queue integration.
+- Feature 4 in progress: execution adapter implemented (start/stop/status endpoints, yt-dlp worker flow, queue progress/state updates), awaiting full runtime validation.

@@ -3,7 +3,9 @@ import type {
   ErrorResponse,
   HealthResponse,
   QueueCreateRequest,
+  QueueExecutionState,
   QueueItem,
+  QueueStartRequest,
   SettingsPatchRequest,
 } from "@/lib/api/types"
 
@@ -99,4 +101,22 @@ export async function clearFinishedQueue(): Promise<QueueItem[]> {
 
 export async function clearAllQueue(): Promise<void> {
   await request<void>("/api/v1/queue", { method: "DELETE" })
+}
+
+export async function getQueueExecutionState(): Promise<QueueExecutionState> {
+  return request<QueueExecutionState>("/api/v1/queue/execution", { method: "GET" })
+}
+
+export async function startQueueExecution(payload?: QueueStartRequest): Promise<QueueExecutionState> {
+  return request<QueueExecutionState>("/api/v1/queue/start", {
+    method: "POST",
+    body: JSON.stringify({
+      retry_failed: payload?.retry_failed ?? true,
+      retry_cancelled: payload?.retry_cancelled ?? false,
+    }),
+  })
+}
+
+export async function stopQueueExecution(): Promise<QueueExecutionState> {
+  return request<QueueExecutionState>("/api/v1/queue/stop", { method: "POST" })
 }

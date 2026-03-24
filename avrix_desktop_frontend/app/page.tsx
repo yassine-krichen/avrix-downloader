@@ -39,13 +39,16 @@ import {
   addQueueItem,
   clearAllQueue,
   clearFinishedQueue,
+  getQueueExecutionState,
   getQueueItems,
   getSettings,
   moveQueueItem,
   removeQueueItem,
+  startQueueExecution,
+  stopQueueExecution,
   updateSettings,
 } from "@/lib/api/client"
-import type { ErrorResponse, Quality, QueueItem, ThemeMode } from "@/lib/api/types"
+import type { ErrorResponse, Quality, QueueExecutionState, QueueItem, ThemeMode } from "@/lib/api/types"
 
 function detectYouTubeUrlType(url: string): { type: "video" | "playlist" | "short" | "invalid"; icon: typeof Play } {
   if (!url.trim()) return { type: "invalid", icon: AlertCircle }
@@ -88,6 +91,12 @@ export default function AvrixDownloader() {
   const [settingsStatus, setSettingsStatus] = useState<string>("")
 
   const [queueItems, setQueueItems] = useState<QueueItem[]>([])
+  const [queueExecution, setQueueExecution] = useState<QueueExecutionState>({
+    running: false,
+    active_item_ids: [],
+    pending_count: 0,
+    max_concurrent: 3,
+  })
 
   const urlDetection = detectYouTubeUrlType(sourceUrl)
 
@@ -107,6 +116,15 @@ export default function AvrixDownloader() {
       setQueueItems(queue)
     } catch {
       setSettingsStatus("Could not load queue from backend")
+    }
+  }
+
+  const loadQueueExecution = async () => {
+    try {
+      const state = await getQueueExecutionState()
+      setQueueExecution(state)
+    } catch {
+      setSettingsStatus("Could not load queue execution state")
     }
   }
 
@@ -139,8 +157,24 @@ export default function AvrixDownloader() {
     }
 
     loadQueue()
+    loadQueueExecution()
     loadSettings()
   }, [])
+
+  useEffect(() => {
+    if (!queueExecution.running) {
+      return
+    }
+
+    const intervalId = window.setInterval(() => {
+      loadQueue()
+      loadQueueExecution()
+    }, 1000)
+
+    return () => {
+      window.clearInterval(intervalId)
+    }
+  }, [queueExecution.running])
 
   const saveSettings = async () => {
     setSettingsStatus("Saving settings...")
@@ -250,10 +284,10 @@ export default function AvrixDownloader() {
     }
   }
 
-  const addToQueue = async () => {
+  const addToQueue = async (): Promise<boolean> => {
     if (!sourceUrl.trim()) {
       setSettingsStatus("Please provide a source URL before adding to queue")
-      return
+      return false
     }
 
     try {
@@ -268,10 +302,45 @@ export default function AvrixDownloader() {
       })
       await loadQueue()
       setSettingsStatus("Added to queue")
+      return true
     } catch (error) {
       const message = (error as ErrorResponse)?.message ?? "Failed to add queue item"
       setSettingsStatus(message)
+      return false
     }
+  }
+
+  const startQueue = async () => {
+    try {
+      await updateSettings({ max_concurrent_downloads: Number(maxConcurrent) })
+      const state = await startQueueExecution({ retry_failed: true, retry_cancelled: false })
+      setQueueExecution(state)
+      await loadQueue()
+      setSettingsStatus("Queue execution started")
+    } catch (error) {
+      const message = (error as ErrorResponse)?.message ?? "Failed to start queue"
+      setSettingsStatus(message)
+    }
+  }
+
+  const stopQueue = async () => {
+    try {
+      const state = await stopQueueExecution()
+      setQueueExecution(state)
+      await loadQueue()
+      setSettingsStatus("Queue execution stopped")
+    } catch (error) {
+      const message = (error as ErrorResponse)?.message ?? "Failed to stop queue"
+      setSettingsStatus(message)
+    }
+  }
+
+  const startDownloadNow = async () => {
+    const added = await addToQueue()
+    if (!added) {
+      return
+    }
+    await startQueue()
   }
 
   const getStatusDisplay = (status: string) => {
@@ -568,16 +637,18 @@ export default function AvrixDownloader() {
                                   <span>•</span>
                                   <span>{item.quality}</span>
                                   <span>•</span>
+                                  <span>{Math.round(item.progress)}%</span>
+                                  <span>•</span>
                                   <span className={`px-2 py-0.5 rounded text-[9px] font-medium ${statusDisplay.color}`}>
                                     {statusDisplay.label}
                                   </span>
                                   {item.download_subtitles ? (
-                                    <span className="px-2 py-0.5 rounded text-[9px] font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                                    <span className="px-2 py-0.5 rounded text-[9px] font-medium bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-200">
                                       Subtitles
                                     </span>
                                   ) : null}
                                   {item.embed_thumbnail ? (
-                                    <span className="px-2 py-0.5 rounded text-[9px] font-medium bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200">
+                                    <span className="px-2 py-0.5 rounded text-[9px] font-medium bg-fuchsia-100 text-fuchsia-800 dark:bg-fuchsia-900 dark:text-fuchsia-200">
                                       Thumbnail
                                     </span>
                                   ) : null}
@@ -621,11 +692,22 @@ export default function AvrixDownloader() {
                   </div>
 
                   <div className="border-t border-border p-2.5 flex gap-2 justify-end">
-                    <Button size="sm" className="h-7 px-3 text-xs font-medium">
+                    <Button
+                      size="sm"
+                      className="h-7 px-3 text-xs font-medium"
+                      onClick={startQueue}
+                      disabled={queueExecution.running || queueItems.length === 0}
+                    >
                       <Play className="mr-1 h-3.5 w-3.5" />
                       Start Queue
                     </Button>
-                    <Button size="sm" variant="outline" className="h-7 px-3 text-xs bg-transparent hover:bg-secondary">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 px-3 text-xs bg-transparent hover:bg-secondary"
+                      onClick={stopQueue}
+                      disabled={!queueExecution.running}
+                    >
                       Stop Queue
                     </Button>
                   </div>
@@ -639,7 +721,7 @@ export default function AvrixDownloader() {
           <Button size="sm" variant="outline" className="h-8 px-3 text-xs bg-transparent hover:bg-secondary" onClick={saveSettings}>
             Save Settings
           </Button>
-          <Button size="sm" className="h-8 px-3 text-xs font-medium">
+          <Button size="sm" className="h-8 px-3 text-xs font-medium" onClick={startDownloadNow}>
             <Download className="mr-1 h-3.5 w-3.5" />
             Start Download
           </Button>
@@ -649,6 +731,8 @@ export default function AvrixDownloader() {
           <Button
             size="sm"
             className="h-8 px-3 text-xs bg-red-600 hover:bg-red-700 text-white font-medium border border-red-600 hover:border-red-700 ml-auto"
+            onClick={stopQueue}
+            disabled={!queueExecution.running}
           >
             Cancel
           </Button>

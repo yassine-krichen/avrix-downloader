@@ -45,3 +45,15 @@ class QueueCreateRequest(BaseModel):
 
 class QueueMoveRequest(BaseModel):
     direction: Literal["up", "down"]
+
+
+class QueueStartRequest(BaseModel):
+    retry_failed: bool = True
+    retry_cancelled: bool = False
+
+
+class QueueExecutionState(BaseModel):
+    running: bool
+    active_item_ids: list[str]
+    pending_count: int
+    max_concurrent: int
