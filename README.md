@@ -60,6 +60,90 @@
 
 ---
 
+## 🚧 Current Migration Status (Electron + Sidecar)
+
+The repository is currently in migration mode.
+
+- Active desktop UI: `avrix_desktop_frontend/` (Next.js)
+- Active backend (new): `avrix_sidecar_backend/` (FastAPI sidecar)
+- Legacy Python/PySide stack: `legacy_backend_pyside/` (reference only)
+
+Feature 1 is complete:
+- Backend foundation scaffolded
+- Versioned API base (`/api/v1`)
+- Health endpoints available
+- Standardized JSON error envelope (`code`, `message`, `details`, `trace_id`)
+
+### Run The App (Current Setup)
+
+1. Install frontend dependencies:
+
+```bash
+cd avrix_desktop_frontend
+npm install
+```
+
+2. Build frontend static output for Electron:
+
+```bash
+npm run build
+```
+
+3. Install backend dependencies:
+
+```bash
+cd ../avrix_sidecar_backend
+pip install -r requirements.txt
+```
+
+4. Start Electron app (it will spawn the backend automatically):
+
+```bash
+cd ../electron
+npm install
+npm start
+```
+
+### How To Test Feature 1 Correctly
+
+1. Keep the Electron app running.
+2. Open these URLs in your browser:
+   - `http://127.0.0.1:8000/health/live`
+   - `http://127.0.0.1:8000/health/ready`
+   - `http://127.0.0.1:8000/api/v1/health/live`
+   - `http://127.0.0.1:8000/api/v1/health/ready`
+3. Expected response for live:
+
+```json
+{"status":"ok"}
+```
+
+4. Expected response for ready:
+
+```json
+{"status":"ready","reason":"storage_ready"}
+```
+
+5. Test standardized error envelope with a missing route:
+   - `http://127.0.0.1:8000/api/v1/does-not-exist`
+
+Expected JSON shape:
+
+```json
+{"code":"not_found","message":"Not Found","details":[],"trace_id":"..."}
+```
+
+### What To Expect In Feature 1
+
+- Electron window opens with your existing static UI.
+- Backend starts in background and readiness is checked before window load.
+- Download/actions are not wired yet (that comes in Feature 2+).
+- This phase validates architecture contract and runtime stability only.
+
+> Note: The rest of this README still contains legacy product documentation and will be progressively updated as migration features are completed.
+
+---
+
 ## ✨ Features
 
 ### 🎯 Core Capabilities
