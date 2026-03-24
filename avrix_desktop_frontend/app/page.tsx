@@ -45,7 +45,7 @@ import {
   removeQueueItem,
   updateSettings,
 } from "@/lib/api/client"
-import type { ErrorResponse, Quality, QueueItem } from "@/lib/api/types"
+import type { ErrorResponse, Quality, QueueItem, ThemeMode } from "@/lib/api/types"
 
 function detectYouTubeUrlType(url: string): { type: "video" | "playlist" | "short" | "invalid"; icon: typeof Play } {
   if (!url.trim()) return { type: "invalid", icon: AlertCircle }
@@ -74,7 +74,7 @@ const QUALITY_OPTIONS: Array<{ value: Quality; label: string }> = [
 ]
 
 export default function AvrixDownloader() {
-  const [theme, setTheme] = useState<"light" | "dark">("light")
+  const [theme, setTheme] = useState<ThemeMode>("light")
   const [showAbout, setShowAbout] = useState(false)
 
   const [sourceUrl, setSourceUrl] = useState("")
@@ -91,6 +91,16 @@ export default function AvrixDownloader() {
 
   const urlDetection = detectYouTubeUrlType(sourceUrl)
 
+  const applyTheme = (nextTheme: ThemeMode) => {
+    setTheme(nextTheme)
+    document.documentElement.classList.toggle("dark", nextTheme === "dark")
+    try {
+      window.localStorage.setItem("avrix.theme", nextTheme)
+    } catch {
+      // Ignore localStorage write failures in restricted contexts.
+    }
+  }
+
   const loadQueue = async () => {
     try {
       const queue = await getQueueItems()
@@ -101,6 +111,17 @@ export default function AvrixDownloader() {
   }
 
   useEffect(() => {
+    try {
+      const savedTheme = window.localStorage.getItem("avrix.theme")
+      if (savedTheme === "light" || savedTheme === "dark") {
+        applyTheme(savedTheme)
+      } else {
+        setTheme(document.documentElement.classList.contains("dark") ? "dark" : "light")
+      }
+    } catch {
+      setTheme(document.documentElement.classList.contains("dark") ? "dark" : "light")
+    }
+
     const loadSettings = async () => {
       try {
         const settings = await getSettings()
@@ -111,6 +132,7 @@ export default function AvrixDownloader() {
         setEmbedThumbnail(settings.embed_thumbnail)
         setOutputLocation(settings.download_path)
         setMaxConcurrent(String(settings.max_concurrent_downloads))
+        applyTheme(settings.theme)
       } catch {
         setSettingsStatus("Could not load settings from backend")
       }
@@ -132,6 +154,7 @@ export default function AvrixDownloader() {
         embed_thumbnail: embedThumbnail,
         download_path: outputLocation,
         max_concurrent_downloads: Number(maxConcurrent),
+        theme,
       })
       setSettingsStatus("Settings saved")
     } catch (error) {
@@ -181,8 +204,10 @@ export default function AvrixDownloader() {
 
   const toggleTheme = () => {
     const newTheme = theme === "light" ? "dark" : "light"
-    setTheme(newTheme)
-    document.documentElement.classList.toggle("dark", newTheme === "dark")
+    applyTheme(newTheme)
+    updateSettings({ theme: newTheme }).catch(() => {
+      setSettingsStatus("Theme changed locally but could not persist to backend")
+    })
   }
 
   const moveQueue = async (id: string, direction: "up" | "down") => {
@@ -546,6 +571,16 @@ export default function AvrixDownloader() {
                                   <span className={`px-2 py-0.5 rounded text-[9px] font-medium ${statusDisplay.color}`}>
                                     {statusDisplay.label}
                                   </span>
+                                  {item.download_subtitles ? (
+                                    <span className="px-2 py-0.5 rounded text-[9px] font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                                      Subtitles
+                                    </span>
+                                  ) : null}
+                                  {item.embed_thumbnail ? (
+                                    <span className="px-2 py-0.5 rounded text-[9px] font-medium bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200">
+                                      Thumbnail
+                                    </span>
+                                  ) : null}
                                 </div>
                               </div>
                               <div className="flex items-center gap-1">

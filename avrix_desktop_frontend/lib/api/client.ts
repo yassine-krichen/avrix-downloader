@@ -44,7 +44,16 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     throw await parseError(response)
   }
 
-  return (await response.json()) as T
+  if (response.status === 204) {
+    return undefined as T
+  }
+
+  const raw = await response.text()
+  if (!raw.trim()) {
+    return undefined as T
+  }
+
+  return JSON.parse(raw) as T
 }
 
 export async function pingBackend(): Promise<HealthResponse> {

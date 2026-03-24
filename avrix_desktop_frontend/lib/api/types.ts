@@ -28,6 +28,7 @@ export interface ApiResponse<T> {
 
 export type FormatType = "mp3" | "mp4"
 export type Quality = "best" | "2160p" | "1440p" | "1080p" | "720p" | "480p" | "360p" | "240p" | "144p"
+export type ThemeMode = "light" | "dark"
 
 export interface AppSettings {
   download_path: string
@@ -39,6 +40,7 @@ export interface AppSettings {
   embed_thumbnail: boolean
   notifications_enabled: boolean
   max_concurrent_downloads: number
+  theme: ThemeMode
 }
 
 export interface SettingsPatchRequest {
@@ -51,6 +53,7 @@ export interface SettingsPatchRequest {
   embed_thumbnail?: boolean
   notifications_enabled?: boolean
   max_concurrent_downloads?: number
+  theme?: ThemeMode
 }
 
 export type QueueStatus = "pending" | "downloading" | "completed" | "failed" | "cancelled"
