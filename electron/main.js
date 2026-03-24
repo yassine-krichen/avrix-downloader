@@ -1,4 +1,4 @@
-const { app, BrowserWindow } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const path = require('path');
 const { spawn } = require('child_process');
 const http = require('http');
@@ -6,6 +6,32 @@ const http = require('http');
 let mainWindow;
 let pythonProcess;
 const API_PORT = 8000;
+
+ipcMain.handle('dialog:selectDirectory', async (_event, defaultPath) => {
+  const result = await dialog.showOpenDialog({
+    properties: ['openDirectory'],
+    defaultPath: typeof defaultPath === 'string' && defaultPath ? defaultPath : undefined,
+  });
+
+  if (result.canceled || result.filePaths.length === 0) {
+    return null;
+  }
+
+  return result.filePaths[0];
+});
+
+ipcMain.handle('shell:openPath', async (_event, targetPath) => {
+  if (typeof targetPath !== 'string' || !targetPath.trim()) {
+    return { ok: false, error: 'Invalid path' };
+  }
+
+  const openError = await shell.openPath(targetPath);
+  if (openError) {
+    return { ok: false, error: openError };
+  }
+
+  return { ok: true };
+});
 
 function waitForBackendReady(timeoutMs = 10000) {
   const start = Date.now();

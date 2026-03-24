@@ -147,6 +147,45 @@ export default function AvrixDownloader() {
     }
   }
 
+  const pickOutputLocation = async () => {
+    try {
+      const electronRequire = (window as Window & { require?: (name: string) => any }).require
+      const ipcRenderer = electronRequire?.("electron")?.ipcRenderer
+
+      if (!ipcRenderer) {
+        setSettingsStatus("Folder picker is only available in desktop mode")
+        return
+      }
+
+      const selectedPath = await ipcRenderer.invoke("dialog:selectDirectory", outputLocation)
+      if (selectedPath) {
+        setOutputLocation(selectedPath)
+        setSettingsStatus("Output location updated. Click Save Settings to persist.")
+      }
+    } catch {
+      setSettingsStatus("Failed to open folder picker")
+    }
+  }
+
+  const openOutputFolder = async () => {
+    try {
+      const electronRequire = (window as Window & { require?: (name: string) => any }).require
+      const ipcRenderer = electronRequire?.("electron")?.ipcRenderer
+
+      if (!ipcRenderer) {
+        setSettingsStatus("Open Folder is only available in desktop mode")
+        return
+      }
+
+      const result = await ipcRenderer.invoke("shell:openPath", outputLocation)
+      if (!result?.ok) {
+        setSettingsStatus(result?.error || "Could not open output folder")
+      }
+    } catch {
+      setSettingsStatus("Failed to open output folder")
+    }
+  }
+
   const toggleTheme = () => {
     const newTheme = theme === "light" ? "dark" : "light"
     setTheme(newTheme)
@@ -262,7 +301,12 @@ export default function AvrixDownloader() {
                     readOnly
                     className="h-8 text-xs flex-1 truncate bg-muted cursor-not-allowed"
                   />
-                  <Button variant="outline" size="sm" className="h-8 px-3 text-xs bg-transparent hover:bg-secondary">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 px-3 text-xs bg-transparent hover:bg-secondary"
+                    onClick={pickOutputLocation}
+                  >
                     <FolderOpen className="h-3.5 w-3.5" />
                   </Button>
                 </div>
@@ -538,7 +582,12 @@ export default function AvrixDownloader() {
           >
             Cancel
           </Button>
-          <Button variant="outline" size="sm" className="h-8 px-3 text-xs bg-transparent hover:bg-secondary">
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 px-3 text-xs bg-transparent hover:bg-secondary"
+            onClick={openOutputFolder}
+          >
             <FolderOpen className="mr-1 h-3 w-3" />
             Open Folder
           </Button>
