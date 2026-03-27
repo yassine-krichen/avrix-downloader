@@ -1,5 +1,6 @@
 import threading
 import time
+import shutil
 from concurrent.futures import Future, ThreadPoolExecutor
 
 import yt_dlp
@@ -143,18 +144,21 @@ class DownloadEngineService:
             "noplaylist": True,
             "quiet": True,
             "no_warnings": True,
+            "prefer_ffmpeg": True,
             "retries": 10,
             "fragment_retries": 10,
             "extractor_retries": 3,
             "file_access_retries": 3,
             "concurrent_fragment_downloads": 1,
-            "skip_unavailable_fragments": True,
-            "extractor_args": {
+            "skip_unavailable_fragments": item.download_policy == "best_effort",
+        }
+
+        if item.download_policy == "best_effort":
+            base_opts["extractor_args"] = {
                 "youtube": {
                     "player_client": ["android", "web"],
                 }
-            },
-        }
+            }
 
         if item.download_subtitles:
             base_opts["writesubtitles"] = True
@@ -180,10 +184,13 @@ class DownloadEngineService:
                 }
             )
         else:
+            if item.download_policy == "strict_quality" and shutil.which("ffmpeg") is None:
+                raise RuntimeError("Strict quality video download requires ffmpeg in PATH")
+
             if item.quality == "best":
-                preferred_format = "bestvideo+bestaudio/best"
+                preferred_format = "bestvideo+bestaudio"
             else:
-                preferred_format = f"bestvideo[height<={item.quality.rstrip('p')}]+bestaudio/best"
+                preferred_format = f"bestvideo[height<={item.quality.rstrip('p')}]+bestaudio"
 
             attempt_opts.append(
                 {
