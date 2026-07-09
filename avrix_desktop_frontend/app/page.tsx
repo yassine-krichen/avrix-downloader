@@ -97,7 +97,7 @@ export default function AvrixDownloader() {
   const [downloadPolicy, setDownloadPolicy] = useState<DownloadPolicy>("best_effort")
   const [downloadSubtitles, setDownloadSubtitles] = useState(false)
   const [embedThumbnail, setEmbedThumbnail] = useState(true)
-  const [outputLocation, setOutputLocation] = useState("C:/Users/user/Downloads")
+  const [outputLocation, setOutputLocation] = useState("")
   const [maxConcurrent, setMaxConcurrent] = useState("3")
   const [activeTab, setActiveTab] = useState("current")
   const [settingsStatus, setSettingsStatus] = useState<string>("")
@@ -188,6 +188,8 @@ export default function AvrixDownloader() {
         applyTheme(settings.theme)
       } catch {
         setSettingsStatus("Could not load settings from backend")
+        const fallbackPath = await window.avrix?.getDefaultDownloadsPath()
+        if (fallbackPath) setOutputLocation(fallbackPath)
       }
     }
 
@@ -237,15 +239,12 @@ export default function AvrixDownloader() {
 
   const pickOutputLocation = async () => {
     try {
-      const electronRequire = (window as Window & { require?: (name: string) => any }).require
-      const ipcRenderer = electronRequire?.("electron")?.ipcRenderer
-
-      if (!ipcRenderer) {
+      if (!window.avrix) {
         setSettingsStatus("Folder picker is only available in desktop mode")
         return
       }
 
-      const selectedPath = await ipcRenderer.invoke("dialog:selectDirectory", outputLocation)
+      const selectedPath = await window.avrix.selectDirectory(outputLocation)
       if (selectedPath) {
         setOutputLocation(selectedPath)
         setSettingsStatus("Output location updated. Click Save Settings to persist.")
@@ -257,15 +256,12 @@ export default function AvrixDownloader() {
 
   const openOutputFolder = async () => {
     try {
-      const electronRequire = (window as Window & { require?: (name: string) => any }).require
-      const ipcRenderer = electronRequire?.("electron")?.ipcRenderer
-
-      if (!ipcRenderer) {
+      if (!window.avrix) {
         setSettingsStatus("Open Folder is only available in desktop mode")
         return
       }
 
-      const result = await ipcRenderer.invoke("shell:openPath", outputLocation)
+      const result = await window.avrix.openPath(outputLocation)
       if (!result?.ok) {
         setSettingsStatus(result?.error || "Could not open output folder")
       }
@@ -562,7 +558,7 @@ export default function AvrixDownloader() {
                   )}
                   Format
                 </Label>
-                <RadioGroup value={format} onValueChange={setFormat}>
+                <RadioGroup value={format} onValueChange={(value) => setFormat(value as "audio" | "video")}>
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="video" id="video" className="h-3 w-3" />
                     <Label htmlFor="video" className="cursor-pointer text-xs font-normal">
@@ -584,7 +580,7 @@ export default function AvrixDownloader() {
                   <Zap className="h-3.5 w-3.5 text-primary" />
                   Quality
                 </Label>
-                <Select value={quality} onValueChange={setQuality}>
+                <Select value={quality} onValueChange={(value) => setQuality(value as Quality)}>
                   <SelectTrigger id="quality" className="h-7 text-xs">
                     <SelectValue placeholder="Select quality" />
                   </SelectTrigger>

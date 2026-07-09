@@ -33,6 +33,10 @@ ipcMain.handle('shell:openPath', async (_event, targetPath) => {
   return { ok: true };
 });
 
+ipcMain.handle('app:getDefaultDownloadsPath', () => {
+  return path.join(app.getPath('downloads'), 'Avrix');
+});
+
 function waitForBackendReady(timeoutMs = 10000) {
   const start = Date.now();
 
@@ -67,8 +71,9 @@ function createWindow() {
     width: 1200,
     height: 800,
     webPreferences: {
-      nodeIntegration: true,
-      contextIsolation: false, // For simple dev, consider enabling for prod
+      preload: path.join(__dirname, 'preload.js'),
+      nodeIntegration: false,
+      contextIsolation: true,
     },
   });
 
@@ -89,15 +94,19 @@ function createWindow() {
 }
 
 function startPythonServer() {
-  const backendRoot = path.join(__dirname, '../avrix_sidecar_backend');
-  
-  pythonProcess = spawn('python', ['-m', 'app.main'], {
-    cwd: backendRoot,
-    env: {
-      ...process.env,
-      PYTHONPATH: backendRoot,
-    }
-  });
+  const env = { ...process.env };
+
+  if (app.isPackaged) {
+    // Packaged build: run the PyInstaller-frozen sidecar binary and the
+    // bundled ffmpeg, so end users need neither installed on their machine.
+    const sidecarExe = path.join(process.resourcesPath, 'sidecar', 'avrix_sidecar', 'avrix_sidecar.exe');
+    env.FFMPEG_PATH = path.join(process.resourcesPath, 'ffmpeg', 'ffmpeg.exe');
+    pythonProcess = spawn(sidecarExe, [], { env });
+  } else {
+    const backendRoot = path.join(__dirname, '../avrix_sidecar_backend');
+    env.PYTHONPATH = backendRoot;
+    pythonProcess = spawn('python', ['-m', 'app.main'], { cwd: backendRoot, env });
+  }
 
   pythonProcess.stdout.on('data', (data) => {
     console.log(`Python: ${data}`);
