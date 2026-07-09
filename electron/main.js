@@ -85,7 +85,13 @@ function createWindow() {
     mainWindow.loadURL('http://localhost:3000');
     mainWindow.webContents.openDevTools();
   } else {
-    mainWindow.loadFile(path.join(__dirname, '../avrix_desktop_frontend/out/index.html'));
+    // Packaged builds flatten avrix_desktop_frontend/out into the app root
+    // (see electron-builder's "files" mapping in package.json); the source
+    // tree keeps it as a sibling directory instead.
+    const rendererPath = app.isPackaged
+      ? path.join(__dirname, 'avrix_desktop_frontend/out/index.html')
+      : path.join(__dirname, '../avrix_desktop_frontend/out/index.html');
+    mainWindow.loadFile(rendererPath);
   }
 
   mainWindow.on('closed', function () {
@@ -101,6 +107,10 @@ function startPythonServer() {
     // bundled ffmpeg, so end users need neither installed on their machine.
     const sidecarExe = path.join(process.resourcesPath, 'sidecar', 'avrix_sidecar', 'avrix_sidecar.exe');
     env.FFMPEG_PATH = path.join(process.resourcesPath, 'ffmpeg', 'ffmpeg.exe');
+    // Without this, the sidecar's default config_root resolves next to its
+    // own frozen source inside the install directory, which isn't reliably
+    // writable and gets wiped on reinstall/uninstall.
+    env.AVRIX_CONFIG_ROOT = path.join(app.getPath('userData'), 'config');
     pythonProcess = spawn(sidecarExe, [], { env });
   } else {
     const backendRoot = path.join(__dirname, '../avrix_sidecar_backend');

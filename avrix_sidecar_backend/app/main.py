@@ -141,4 +141,7 @@ def get_readiness() -> dict[str, str]:
 
 
 if __name__ == "__main__":
-    uvicorn.run("app.main:app", host=settings.app_host, port=settings.app_port, reload=False)
+    # Pass the app object directly rather than the "app.main:app" import
+    # string — PyInstaller-frozen builds don't reliably resolve dotted
+    # module strings, and reload is always off here so nothing needs it.
+    uvicorn.run(app, host=settings.app_host, port=settings.app_port, reload=False)

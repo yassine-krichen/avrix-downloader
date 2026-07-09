@@ -62,3 +62,6 @@ downloads/
 **/.env.local
 **/.env.*.local
 **/.vercel/
+
+# Packaging build inputs (fetched at build time, not committed)
+electron/build-resources/

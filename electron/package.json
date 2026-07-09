@@ -6,6 +6,8 @@
   "scripts": {
     "prestart": "npm --prefix ../avrix_desktop_frontend run build",
     "start": "electron .",
+    "prepack": "npm --prefix ../avrix_desktop_frontend run build",
+    "predist": "npm --prefix ../avrix_desktop_frontend run build",
     "pack": "electron-builder --dir",
     "dist": "electron-builder"
   },
@@ -18,5 +20,37 @@
   "dependencies": {
     "get-port": "^7.0.0",
     "wait-on": "^7.2.0"
+  },
+  "build": {
+    "appId": "com.avrix.downloader",
+    "productName": "Avrix",
+    "files": [
+      "main.js",
+      "preload.js",
+      "package.json",
+      {
+        "from": "../avrix_desktop_frontend/out",
+        "to": "avrix_desktop_frontend/out"
+      }
+    ],
+    "extraResources": [
+      {
+        "from": "../avrix_sidecar_backend/dist/avrix_sidecar",
+        "to": "sidecar/avrix_sidecar"
+      },
+      {
+        "from": "build-resources/ffmpeg",
+        "to": "ffmpeg"
+      }
+    ],
+    "win": {
+      "icon": "../assets/images/avrix_icon.ico",
+      "target": "nsis"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true
+    }
   }
 }
