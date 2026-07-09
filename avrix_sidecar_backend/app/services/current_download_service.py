@@ -1,11 +1,11 @@
 import threading
-import shutil
 
 import yt_dlp
 
 from app.contracts.common import ErrorCode, ErrorDetail
 from app.contracts.download import CurrentDownloadStartRequest, CurrentDownloadState
 from app.core.errors import AppError
+from app.services.download_options import build_ydl_attempts, resolve_ffmpeg_location
 
 
 class DownloadCancelled(Exception):
@@ -85,85 +85,23 @@ class CurrentDownloadService:
         file_tag = f"single-{payload.format_type}-{payload.quality}"
         output_template = f"{payload.download_path}/%(title)s [{file_tag}].%(ext)s"
 
-        base_opts: dict = {
-            "outtmpl": output_template,
-            "progress_hooks": [progress_hook],
-            "noplaylist": True,
-            "quiet": True,
-            "no_warnings": True,
-            "prefer_ffmpeg": True,
-            "retries": 10,
-            "fragment_retries": 10,
-            "extractor_retries": 3,
-            "file_access_retries": 3,
-            "concurrent_fragment_downloads": 1,
-            "skip_unavailable_fragments": payload.download_policy == "best_effort",
-        }
-
-        if payload.download_policy == "best_effort":
-            base_opts["extractor_args"] = {
-                "youtube": {
-                    "player_client": ["android", "web"],
-                }
-            }
-
-        if payload.download_subtitles:
-            base_opts["writesubtitles"] = True
-            base_opts["subtitleslangs"] = [lang.strip() for lang in payload.subtitle_languages.split(",") if lang.strip()]
-
-        if payload.embed_thumbnail:
-            base_opts["writethumbnail"] = True
-
-        attempt_opts: list[dict] = []
-
-        if payload.format_type == "mp3":
-            postprocessors = [{"key": "FFmpegExtractAudio", "preferredcodec": "mp3"}]
-            attempt_opts.append(
-                {
-                    "format": "bestaudio[ext=m4a]/bestaudio/best",
-                    "postprocessors": postprocessors,
-                }
-            )
-            attempt_opts.append(
-                {
-                    "format": "bestaudio/best",
-                    "postprocessors": postprocessors,
-                }
-            )
-        else:
-            if payload.download_policy == "strict_quality" and shutil.which("ffmpeg") is None:
-                raise RuntimeError("Strict quality video download requires ffmpeg in PATH")
-
-            if payload.quality == "best":
-                preferred_format = "bestvideo+bestaudio"
-            else:
-                preferred_format = f"bestvideo[height<={payload.quality.rstrip('p')}]+bestaudio"
-
-            attempt_opts.append(
-                {
-                    "format": preferred_format,
-                    "merge_output_format": "mp4",
-                }
-            )
-
-            if payload.download_policy == "best_effort":
-                attempt_opts.append(
-                    {
-                        "format": "best[ext=mp4]/best",
-                        "merge_output_format": "mp4",
-                    }
-                )
+        attempts = build_ydl_attempts(
+            format_type=payload.format_type,
+            quality=payload.quality,
+            download_policy=payload.download_policy,
+            output_template=output_template,
+            progress_hook=progress_hook,
+            download_subtitles=payload.download_subtitles,
+            subtitle_languages=payload.subtitle_languages,
+            embed_thumbnail=payload.embed_thumbnail,
+            ffmpeg_location=resolve_ffmpeg_location(),
+        )
 
         try:
             last_error: Exception | None = None
             download_succeeded = False
 
-            for attempt in attempt_opts:
-                ydl_opts = {
-                    **base_opts,
-                    **attempt,
-                }
-
+            for ydl_opts in attempts:
                 try:
                     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                         info = ydl.extract_info(payload.url, download=False)
