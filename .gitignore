@@ -40,6 +40,9 @@ env/
 .DS_Store
 Thumbs.db
 
+# Local scratch files
+links_to_test_with.txt
+
 # User settings (keep template, ignore user's actual settings)
 config/settings.json
 
