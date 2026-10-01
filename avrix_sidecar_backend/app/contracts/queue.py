@@ -31,6 +31,7 @@ class QueueItem(BaseModel):
     embed_thumbnail: bool = False
 
     title: str | None = None
+    error_message: str | None = None
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
 

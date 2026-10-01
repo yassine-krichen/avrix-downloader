@@ -2,15 +2,22 @@
 # Builds the FastAPI sidecar into a onedir bundle so the Electron app can
 # spawn it without requiring Python on the end user's machine. Run from
 # avrix_sidecar_backend/: pyinstaller sidecar.spec
-from PyInstaller.utils.hooks import collect_submodules
+from PyInstaller.utils.hooks import collect_data_files, collect_submodules
 
-hiddenimports = collect_submodules("yt_dlp") + collect_submodules("uvicorn")
+# yt_dlp_ejs ships the JS challenge solver scripts as package data; yt-dlp
+# feeds them to the bundled deno runtime to unlock YouTube formats.
+hiddenimports = (
+    collect_submodules("yt_dlp")
+    + collect_submodules("yt_dlp_ejs")
+    + collect_submodules("uvicorn")
+)
+ejs_datas = collect_data_files("yt_dlp_ejs")
 
 a = Analysis(
     ["run_sidecar.py"],
     pathex=[],
     binaries=[],
-    datas=[],
+    datas=ejs_datas,
     hiddenimports=hiddenimports,
     hookspath=[],
     hooksconfig={},

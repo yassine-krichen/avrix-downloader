@@ -1,15 +1,10 @@
 import threading
 
-import yt_dlp
-
 from app.contracts.common import ErrorCode, ErrorDetail
 from app.contracts.download import CurrentDownloadStartRequest, CurrentDownloadState
 from app.core.errors import AppError
-from app.services.download_options import build_ydl_attempts, resolve_ffmpeg_location
-
-
-class DownloadCancelled(Exception):
-    pass
+from app.services.download_errors import DownloadCancelled, describe_download_error, run_ydl_attempts
+from app.services.download_options import build_ydl_attempts, resolve_ffmpeg_location, resolve_js_runtime_path
 
 
 class CurrentDownloadService:
@@ -85,43 +80,23 @@ class CurrentDownloadService:
         file_tag = f"single-{payload.format_type}-{payload.quality}"
         output_template = f"{payload.download_path}/%(title)s [{file_tag}].%(ext)s"
 
-        attempts = build_ydl_attempts(
-            format_type=payload.format_type,
-            quality=payload.quality,
-            download_policy=payload.download_policy,
-            output_template=output_template,
-            progress_hook=progress_hook,
-            download_subtitles=payload.download_subtitles,
-            subtitle_languages=payload.subtitle_languages,
-            embed_thumbnail=payload.embed_thumbnail,
-            ffmpeg_location=resolve_ffmpeg_location(),
-        )
+        def record_info(info: dict):
+            self._update_state(title=info.get("title"), thumbnail_url=info.get("thumbnail"))
 
         try:
-            last_error: Exception | None = None
-            download_succeeded = False
-
-            for ydl_opts in attempts:
-                try:
-                    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                        info = ydl.extract_info(payload.url, download=False)
-                        title = info.get("title") if isinstance(info, dict) else None
-                        thumbnail = info.get("thumbnail") if isinstance(info, dict) else None
-                        self._update_state(title=title, thumbnail_url=thumbnail)
-                        ydl.download([payload.url])
-
-                    download_succeeded = True
-                    break
-                except DownloadCancelled:
-                    raise
-                except Exception as exc:
-                    last_error = exc
-                    continue
-
-            if not download_succeeded:
-                if last_error is not None:
-                    raise last_error
-                raise RuntimeError("Download failed for unknown reason")
+            attempts = build_ydl_attempts(
+                format_type=payload.format_type,
+                quality=payload.quality,
+                download_policy=payload.download_policy,
+                output_template=output_template,
+                progress_hook=progress_hook,
+                download_subtitles=payload.download_subtitles,
+                subtitle_languages=payload.subtitle_languages,
+                embed_thumbnail=payload.embed_thumbnail,
+                ffmpeg_location=resolve_ffmpeg_location(),
+                js_runtime_path=resolve_js_runtime_path(),
+            )
+            run_ydl_attempts(attempts, payload.url, record_info)
 
             if self._stop_event.is_set():
                 self._update_state(running=False, status="cancelled", speed_bps=0.0, eta_seconds=0)
@@ -135,7 +110,7 @@ class CurrentDownloadService:
                 status="failed",
                 speed_bps=0.0,
                 eta_seconds=0,
-                error_message=str(exc),
+                error_message=describe_download_error(exc),
             )
         finally:
             self._stop_event.clear()

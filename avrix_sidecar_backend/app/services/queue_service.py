@@ -58,11 +58,11 @@ class QueueService:
             changed = False
             for index, item in enumerate(items):
                 if retry_failed and item.status == QueueItemStatus.FAILED:
-                    items[index] = item.model_copy(update={"status": QueueItemStatus.PENDING, "progress": 0.0})
+                    items[index] = item.model_copy(update={"status": QueueItemStatus.PENDING, "progress": 0.0, "error_message": None})
                     changed = True
                     continue
                 if retry_cancelled and item.status == QueueItemStatus.CANCELLED:
-                    items[index] = item.model_copy(update={"status": QueueItemStatus.PENDING, "progress": 0.0})
+                    items[index] = item.model_copy(update={"status": QueueItemStatus.PENDING, "progress": 0.0, "error_message": None})
                     changed = True
             if changed:
                 self._save(items)

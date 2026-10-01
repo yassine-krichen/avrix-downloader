@@ -74,6 +74,7 @@ export interface QueueItem {
   subtitle_languages: string
   embed_thumbnail: boolean
   title?: string | null
+  error_message?: string | null
   created_at: string
 }
 

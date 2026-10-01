@@ -1,6 +1,6 @@
 import pytest
 
-from app.services.download_options import build_ydl_attempts
+from app.services.download_options import build_ydl_attempts, resolve_js_runtime_path
 
 
 def build(**overrides):
@@ -34,19 +34,38 @@ def test_best_effort_video_adds_a_looser_fallback_attempt():
     assert attempts[1]["format"] == "best[ext=mp4]/best"
 
 
-def test_best_effort_sets_403_workaround_extractor_args():
-    attempts = build(download_policy="best_effort")
-
-    for attempt in attempts:
-        assert attempt["extractor_args"] == {"youtube": {"player_client": ["android", "web"]}}
-        assert attempt["skip_unavailable_fragments"] is True
+def test_best_effort_skips_unavailable_fragments_and_strict_does_not():
+    assert all(a["skip_unavailable_fragments"] is True for a in build(download_policy="best_effort"))
+    assert build(download_policy="strict_quality")[0]["skip_unavailable_fragments"] is False
 
 
-def test_strict_quality_does_not_set_403_workaround_extractor_args():
-    attempts = build(download_policy="strict_quality")
+def test_youtube_player_client_is_left_to_yt_dlp_defaults():
+    for policy in ("best_effort", "strict_quality"):
+        for attempt in build(download_policy=policy):
+            assert "extractor_args" not in attempt
 
-    assert "extractor_args" not in attempts[0]
-    assert attempts[0]["skip_unavailable_fragments"] is False
+
+def test_bundled_js_runtime_path_is_passed_to_yt_dlp_as_deno():
+    attempts = build(js_runtime_path="C:/app/deno.exe")
+
+    assert attempts[0]["js_runtimes"] == {"deno": {"path": "C:/app/deno.exe"}}
+
+
+def test_without_bundled_js_runtime_yt_dlp_searches_path_for_deno_then_node():
+    attempts = build(js_runtime_path=None)
+
+    assert attempts[0]["js_runtimes"] == {"deno": {}, "node": {}}
+
+
+def test_resolve_js_runtime_path_uses_deno_path_env_only_when_the_file_exists(monkeypatch, tmp_path):
+    deno = tmp_path / "deno.exe"
+    deno.write_text("x")
+
+    monkeypatch.setenv("DENO_PATH", str(deno))
+    assert resolve_js_runtime_path() == str(deno)
+
+    monkeypatch.setenv("DENO_PATH", str(tmp_path / "missing.exe"))
+    assert resolve_js_runtime_path() is None
 
 
 def test_strict_quality_video_without_ffmpeg_raises():

@@ -104,9 +104,11 @@ function startPythonServer() {
 
   if (app.isPackaged) {
     // Packaged build: run the PyInstaller-frozen sidecar binary and the
-    // bundled ffmpeg, so end users need neither installed on their machine.
+    // bundled ffmpeg and deno, so end users need neither installed on their machine.
     const sidecarExe = path.join(process.resourcesPath, 'sidecar', 'avrix_sidecar', 'avrix_sidecar.exe');
     env.FFMPEG_PATH = path.join(process.resourcesPath, 'ffmpeg', 'ffmpeg.exe');
+    // yt-dlp needs a JavaScript runtime to solve YouTube's signature challenges.
+    env.DENO_PATH = path.join(process.resourcesPath, 'deno', 'deno.exe');
     // Without this, the sidecar's default config_root resolves next to its
     // own frozen source inside the install directory, which isn't reliably
     // writable and gets wiped on reinstall/uninstall.

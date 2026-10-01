@@ -2,16 +2,11 @@ import threading
 import time
 from concurrent.futures import Future, ThreadPoolExecutor
 
-import yt_dlp
-
 from app.contracts.queue import QueueExecutionState, QueueItemStatus
-from app.services.download_options import build_ydl_attempts, resolve_ffmpeg_location
+from app.services.download_errors import DownloadCancelled, describe_download_error, run_ydl_attempts
+from app.services.download_options import build_ydl_attempts, resolve_ffmpeg_location, resolve_js_runtime_path
 from app.services.queue_service import queue_service
 from app.services.settings_service import settings_service
-
-
-class DownloadCancelled(Exception):
-    pass
 
 
 class DownloadEngineService:
@@ -83,6 +78,7 @@ class DownloadEngineService:
                         next_item.id,
                         status=QueueItemStatus.DOWNLOADING,
                         progress=0.0,
+                        error_message=None,
                     )
 
                     with self._lock:
@@ -138,43 +134,28 @@ class DownloadEngineService:
         file_tag = f"{item.format_type}-{item.quality}-{item.id[:8]}"
         output_template = f"{item.download_path}/%(title)s [{file_tag}].%(ext)s"
 
-        attempts = build_ydl_attempts(
-            format_type=item.format_type,
-            quality=item.quality,
-            download_policy=item.download_policy,
-            output_template=output_template,
-            progress_hook=progress_hook,
-            download_subtitles=item.download_subtitles,
-            subtitle_languages=item.subtitle_languages,
-            embed_thumbnail=item.embed_thumbnail,
-            ffmpeg_location=resolve_ffmpeg_location(),
-        )
+        def record_title(info: dict):
+            title = info.get("title")
+            if title:
+                queue_service.update_item_fields(item_id, title=title)
 
         try:
-            last_error: Exception | None = None
-            download_succeeded = False
-
-            for ydl_opts in attempts:
-                try:
-                    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                        info = ydl.extract_info(item.url, download=False)
-                        title = info.get("title") if isinstance(info, dict) else None
-                        if title:
-                            queue_service.update_item_fields(item_id, title=title)
-                        ydl.download([item.url])
-
-                    download_succeeded = True
-                    break
-                except DownloadCancelled:
-                    raise
-                except Exception as exc:
-                    last_error = exc
-                    continue
-
-            if not download_succeeded:
-                if last_error is not None:
-                    raise last_error
-                raise RuntimeError("Download failed for unknown reason")
+            # Built inside the try so a config error (e.g. missing ffmpeg for
+            # strict quality) marks the item failed instead of leaving it
+            # stuck in "downloading".
+            attempts = build_ydl_attempts(
+                format_type=item.format_type,
+                quality=item.quality,
+                download_policy=item.download_policy,
+                output_template=output_template,
+                progress_hook=progress_hook,
+                download_subtitles=item.download_subtitles,
+                subtitle_languages=item.subtitle_languages,
+                embed_thumbnail=item.embed_thumbnail,
+                ffmpeg_location=resolve_ffmpeg_location(),
+                js_runtime_path=resolve_js_runtime_path(),
+            )
+            run_ydl_attempts(attempts, item.url, record_title)
 
             if self._stop_event.is_set():
                 queue_service.update_item_fields(item_id, status=QueueItemStatus.CANCELLED)
@@ -182,8 +163,12 @@ class DownloadEngineService:
                 queue_service.update_item_fields(item_id, status=QueueItemStatus.COMPLETED, progress=100.0)
         except DownloadCancelled:
             queue_service.update_item_fields(item_id, status=QueueItemStatus.CANCELLED)
-        except Exception:
-            queue_service.update_item_fields(item_id, status=QueueItemStatus.FAILED)
+        except Exception as exc:
+            queue_service.update_item_fields(
+                item_id,
+                status=QueueItemStatus.FAILED,
+                error_message=describe_download_error(exc),
+            )
 
 
 download_engine_service = DownloadEngineService()

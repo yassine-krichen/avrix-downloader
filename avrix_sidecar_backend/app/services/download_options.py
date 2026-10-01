@@ -11,6 +11,14 @@ def resolve_ffmpeg_location() -> str | None:
     return shutil.which("ffmpeg")
 
 
+def resolve_js_runtime_path() -> str | None:
+    """Bundled deno (packaged builds set DENO_PATH); None defers to PATH lookup."""
+    bundled = os.environ.get("DENO_PATH")
+    if bundled and os.path.isfile(bundled):
+        return bundled
+    return None
+
+
 def build_ydl_attempts(
     *,
     format_type: str,
@@ -22,12 +30,14 @@ def build_ydl_attempts(
     subtitle_languages: str,
     embed_thumbnail: bool,
     ffmpeg_location: str | None,
+    js_runtime_path: str | None = None,
 ) -> list[dict]:
     """Build the ordered list of yt-dlp option sets to try for a download.
 
     strict_quality yields exactly one attempt with no fallback; best_effort
     appends a looser second attempt so transient 403s on the preferred
-    format don't fail the whole download.
+    format don't fail the whole download. yt-dlp's default player clients are
+    kept deliberately; hardcoding them breaks whenever YouTube changes.
     """
     base_opts: dict = {
         "outtmpl": output_template,
@@ -44,12 +54,12 @@ def build_ydl_attempts(
         "skip_unavailable_fragments": download_policy == "best_effort",
     }
 
-    if download_policy == "best_effort":
-        base_opts["extractor_args"] = {
-            "youtube": {
-                "player_client": ["android", "web"],
-            }
-        }
+    # YouTube needs an external JS runtime to solve signature challenges.
+    # Prefer the bundled deno; otherwise let yt-dlp look for one on PATH.
+    if js_runtime_path:
+        base_opts["js_runtimes"] = {"deno": {"path": js_runtime_path}}
+    else:
+        base_opts["js_runtimes"] = {"deno": {}, "node": {}}
 
     if download_subtitles:
         base_opts["writesubtitles"] = True

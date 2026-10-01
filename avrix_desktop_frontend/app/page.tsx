@@ -827,6 +827,11 @@ export default function AvrixDownloader() {
                                 </Button>
                               </div>
                             </div>
+                            {item.status === "failed" && item.error_message ? (
+                              <p className="mt-1 text-[10px] text-red-600 dark:text-red-400" title={item.error_message}>
+                                {item.error_message}
+                              </p>
+                            ) : null}
                           </div>
                         )
                       })
