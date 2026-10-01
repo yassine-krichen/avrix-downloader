@@ -52,7 +52,8 @@ app/
     ├── queue_service.py        # Queue CRUD/ordering, JSON-file persisted
     ├── download_engine_service.py  # Queue-driven concurrent downloads
     ├── current_download_service.py # Single "direct mode" download
-    └── download_options.py     # Shared yt-dlp option/attempt builder
+    ├── download_options.py     # Shared yt-dlp option/attempt builder
+    └── download_errors.py      # Attempt loop + friendly error messages
 ```
 
 ### API surface (`/api/v1`)
@@ -75,9 +76,24 @@ Every download (queue or direct) picks one of two policies
 - **`strict_quality`** — exactly one yt-dlp attempt at the requested
   format/height, no fallback. Requires ffmpeg (raises if unavailable).
 - **`best_effort`** — same first attempt, plus a looser `best[ext=mp4]/best`
-  fallback attempt, `skip_unavailable_fragments`, and
-  `player_client: [android, web]` extractor args to work around YouTube 403s
-  on the primary stream.
+  fallback attempt and `skip_unavailable_fragments`. yt-dlp's default player
+  clients are left alone on purpose; hardcoding them breaks when YouTube
+  changes.
+
+YouTube also needs an external JavaScript runtime. `build_ydl_attempts()` sets
+yt-dlp's `js_runtimes` to the bundled deno (`DENO_PATH`), or falls back to
+deno/node on PATH when running from source. The `yt-dlp[default]` extra
+installs `yt-dlp-ejs`, which holds the solver scripts.
+
+### Error surfacing
+
+Both services run attempts through `run_ydl_attempts()`
+(`download_errors.py`). When every attempt fails, `describe_download_error()`
+turns the last error into one sanitized line (no traceback, ANSI codes
+stripped, max 300 chars) with a friendly hint for common causes (bot check,
+missing ffmpeg, unavailable video, unavailable format, 403, network). It is
+stored on the queue item as `error_message` (cleared on retry) or on the
+direct download state, and the UI shows it for failed items.
 
 Both services (queue engine and direct download) build their yt-dlp options
 through the same `build_ydl_attempts()` function — kept as one shared
@@ -104,21 +120,26 @@ requests/threads can touch the same file.
 
 ## Packaging
 
-The installed build bundles two things Python and Node code depend on so
-the end user needs neither preinstalled:
+The installed build bundles three things Python and Node code depend on so
+the end user needs none of them preinstalled:
 
 1. **The sidecar itself**, frozen with PyInstaller (`sidecar.spec`, onedir
    build) into `avrix_sidecar_backend/dist/avrix_sidecar/`.
 2. **ffmpeg**, fetched by `scripts/fetch-ffmpeg.ps1` into
    `electron/build-resources/ffmpeg/` (not committed — fetched at build
-   time).
+   time, version and SHA-256 pinned in the script).
+3. **deno**, fetched by `scripts/fetch-deno.ps1` into
+   `electron/build-resources/deno/` (pinned and checksum-verified). It is
+   yt-dlp's JavaScript runtime for YouTube signature challenges.
 
 `electron-builder` (config in `electron/package.json`'s `"build"` key) wires
 both in as `extraResources`, alongside the Next.js static export. In a
 packaged build, `electron/main.js` spawns the frozen sidecar exe instead of
-`python -m app.main`, and sets two env vars the sidecar reads via
+`python -m app.main`, and sets three env vars the sidecar reads via
 `pydantic-settings`' `AVRIX_` prefix:
 
+- `DENO_PATH` — path to the bundled deno binary (see
+  `resolve_js_runtime_path()` in `download_options.py`).
 - `FFMPEG_PATH` — path to the bundled ffmpeg binary (checked before PATH,
   see `resolve_ffmpeg_location()` in `download_options.py`).
 - `AVRIX_CONFIG_ROOT` — `app.getPath('userData')/config`. Without this, the

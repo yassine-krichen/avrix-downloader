@@ -23,7 +23,9 @@ NODE_ENV=development npm start
 
 In dev mode, Electron loads the renderer from the Next.js dev server (hot
 reload works) and spawns the backend via `python -m app.main` — you need a
-Python 3.10+ interpreter and `ffmpeg` on PATH locally.
+Python 3.10+ interpreter and `ffmpeg` on PATH locally. YouTube downloads
+also need a JavaScript runtime on PATH when running from source: install
+[deno](https://deno.com) (or Node 20+).
 
 Run the backend test suite from `avrix_sidecar_backend/`:
 
@@ -34,15 +36,16 @@ pytest
 ## Building the installer (production)
 
 This produces a single NSIS installer that bundles the frontend, a frozen
-copy of the Python backend, and ffmpeg — the target machine needs none of
-those preinstalled. Windows only (see [ARCHITECTURE.md](ARCHITECTURE.md) for
+copy of the Python backend, ffmpeg, and deno (yt-dlp's JavaScript runtime
+for YouTube) — the target machine needs none of those preinstalled. Windows only (see [ARCHITECTURE.md](ARCHITECTURE.md) for
 why: PyInstaller + electron-builder are both configured for a Windows/NSIS
 target today).
 
 ```bash
-# 1. Fetch ffmpeg (downloads a static build into electron/build-resources/,
-#    gitignored, ~100MB, skips if already present)
-powershell -File scripts/fetch-ffmpeg.ps1
+# 1. Fetch ffmpeg and deno (pinned versions, SHA-256 verified, into
+#    electron/build-resources/, gitignored, skipped if already present)
+powershell -ExecutionPolicy Bypass -File scripts/fetch-ffmpeg.ps1
+powershell -ExecutionPolicy Bypass -File scripts/fetch-deno.ps1
 
 # 2. Freeze the Python backend with PyInstaller
 cd avrix_sidecar_backend
@@ -55,7 +58,7 @@ pyinstaller sidecar.spec --noconfirm
 cd ../electron
 npm install
 npm run dist
-# -> electron/dist/Avrix Setup <version>.exe
+# -> electron/dist/Avrix-Setup-<version>.exe
 ```
 
 `npm run pack` (instead of `dist`) produces an unpacked build in
@@ -71,6 +74,7 @@ electron-builder's `build` config (in `electron/package.json`) wires:
 - `avrix_sidecar_backend/dist/avrix_sidecar` (the PyInstaller output) into
   `resources/sidecar/avrix_sidecar/`.
 - `electron/build-resources/ffmpeg` into `resources/ffmpeg/`.
+- `electron/build-resources/deno` into `resources/deno/`.
 
 `electron/main.js` picks between the dev and packaged spawn paths via
 `app.isPackaged`.
@@ -93,3 +97,19 @@ yt-dlp ships fixes for YouTube extraction breakage frequently. Before
 cutting a release, bump the pin in `avrix_sidecar_backend/requirements.txt`
 (`requirements-dev.txt` and `requirements-build.txt` both inherit it via
 `-r requirements.txt`) and rerun the backend test suite.
+ Keep the `[default]` extra: it installs `yt-dlp-ejs`, which
+YouTube extraction needs, and `sidecar.spec` bundles it.
+
+## Cutting a release
+
+1. Bump `version` in `electron/package.json` and `avrix_desktop_frontend/package.json`.
+2. Commit, then tag and push: `git tag v1.0.0 && git push origin v1.0.0`.
+3. `.github/workflows/release.yml` builds on `windows-latest` (fetches
+   ffmpeg and deno, freezes the sidecar, runs electron-builder) and attaches
+   `Avrix-Setup-<version>.exe` to a GitHub Release for that tag.
+
+`.github/workflows/ci.yml` runs the backend tests, frontend lint and build,
+and the dependency audits on every push and pull request.
+
+To update bundled tools, change the pinned version and SHA-256 at the top of
+`scripts/fetch-ffmpeg.ps1` or `scripts/fetch-deno.ps1`.

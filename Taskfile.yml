@@ -1,0 +1,99 @@
+version: "3"
+
+# Three pieces per docs/BUILD_INSTRUCTIONS.md ("Running from source"):
+# FastAPI sidecar (8000), Next.js frontend (3000 default), Electron shell.
+# Each runs in its own terminal. Port 3000 collides with llm-web-bridge, so do
+# not run frontend:dev next to it (see PORTS.md).
+
+vars:
+  PORT: 8000
+
+tasks:
+  help:
+    desc: List all available tasks
+    cmds:
+      - task --list
+
+  install:
+    desc: Install backend (pip), frontend and electron dependencies
+    cmds:
+      - task: install:backend
+      - task: install:frontend
+      - task: install:electron
+
+  install:backend:
+    desc: pip install -r requirements-dev.txt (needs Python 3.10+ and ffmpeg on PATH)
+    dir: avrix_sidecar_backend
+    cmds:
+      - pip install -r requirements-dev.txt
+
+  install:frontend:
+    desc: npm install for the Next.js frontend
+    dir: avrix_desktop_frontend
+    cmds:
+      - npm install
+
+  install:electron:
+    desc: npm install for the Electron shell
+    dir: electron
+    cmds:
+      - npm install
+
+  backend:dev:
+    desc: Run the FastAPI sidecar on port {{.PORT}} (python -m app.main, foreground)
+    dir: avrix_sidecar_backend
+    cmds:
+      - python -m app.main
+
+  frontend:dev:
+    desc: Run the Next.js dev server (default port 3000, collides with llm-web-bridge)
+    dir: avrix_desktop_frontend
+    cmds:
+      - npm run dev
+
+  electron:dev:
+    desc: Run the Electron shell in dev mode (needs frontend:dev running; it spawns the backend itself)
+    dir: electron
+    env:
+      NODE_ENV: development
+    cmds:
+      - npm start
+
+  dev:
+    desc: Prints how to start the app - the three pieces each need their own terminal
+    cmds:
+      - echo "Run in separate terminals - task avrix-downloader:backend:dev, task avrix-downloader:frontend:dev, task avrix-downloader:electron:dev"
+
+  stop:
+    desc: Best-effort kill of whatever is listening on port {{.PORT}} (the sidecar)
+    cmds:
+      - powershell -NoProfile -Command "Get-NetTCPConnection -LocalPort {{.PORT}} -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique | ForEach-Object { Stop-Process -Id \$_ -Force -ErrorAction SilentlyContinue }"
+
+  test:
+    desc: Run the backend test suite (pytest in avrix_sidecar_backend)
+    dir: avrix_sidecar_backend
+    cmds:
+      - pytest
+
+  build:ffmpeg:
+    desc: Download pinned static ffmpeg into electron/build-resources (~100MB, skips if present; docs step 1)
+    cmds:
+      - powershell -NoProfile -ExecutionPolicy Bypass -File scripts/fetch-ffmpeg.ps1
+
+  build:deno:
+    desc: Download pinned deno (yt-dlp's JS runtime for YouTube) into electron/build-resources, skips if present
+    cmds:
+      - powershell -NoProfile -ExecutionPolicy Bypass -File scripts/fetch-deno.ps1
+
+  build:sidecar:
+    desc: Freeze the Python backend with PyInstaller (docs step 2)
+    dir: avrix_sidecar_backend
+    cmds:
+      - pip install -r requirements-build.txt
+      - pyinstaller sidecar.spec --noconfirm
+
+  build:installer:
+    desc: Build the NSIS installer (run build:ffmpeg, build:deno and build:sidecar first)
+    dir: electron
+    cmds:
+      - npm run dist
