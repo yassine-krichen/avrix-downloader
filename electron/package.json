@@ -11,15 +11,11 @@
     "pack": "electron-builder --dir",
     "dist": "electron-builder"
   },
-  "author": "Avrix",
+  "author": "yassine-krichen",
   "license": "MIT",
   "devDependencies": {
     "electron": "^43.1.0",
     "electron-builder": "^26.15.3"
-  },
-  "dependencies": {
-    "get-port": "^7.0.0",
-    "wait-on": "^7.2.0"
   },
   "build": {
     "appId": "com.avrix.downloader",
@@ -41,11 +37,16 @@
       {
         "from": "build-resources/ffmpeg",
         "to": "ffmpeg"
+      },
+      {
+        "from": "build-resources/deno",
+        "to": "deno"
       }
     ],
     "win": {
       "icon": "../assets/images/avrix_icon.ico",
-      "target": "nsis"
+      "target": "nsis",
+      "artifactName": "Avrix-Setup-${version}.${ext}"
     },
     "nsis": {
       "oneClick": false,
